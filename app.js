@@ -12,6 +12,14 @@
   var profileName = document.getElementById('profile-name');
   var profileButton = document.getElementById('profile-button');
   var statusBanner = document.getElementById('api-status');
+  var clearActivityButton = document.getElementById('clear-activity-button');
+  var profilePanel = document.getElementById('profile-panel');
+  var profileCloseButton = document.getElementById('profile-close-button');
+  var profileForm = document.getElementById('profile-form');
+  var profileFirstNameInput = document.getElementById('profile-first-name');
+  var profileLastNameInput = document.getElementById('profile-last-name');
+  var profileEmailInput = document.getElementById('profile-email');
+  var profileSignoutButton = document.getElementById('profile-signout-button');
 
   var kpiProjects = document.getElementById('kpi-projects');
   var kpiSuccess = document.getElementById('kpi-success');
@@ -29,19 +37,23 @@
 
   var clerkInstance = null;
   var authToken = '';
+  var currentUser = null;
+  var currentActivityItems = [];
+  var profilePanelOpen = false;
 
   var setStatus = function (message, kind) {
     if (!statusBanner) {
       return;
     }
-    statusBanner.textContent = message;
     statusBanner.classList.remove('error', 'success');
     if (kind === 'error') {
+      statusBanner.textContent = message || 'Something went wrong.';
       statusBanner.classList.add('error');
+      statusBanner.hidden = false;
+      return;
     }
-    if (kind === 'success') {
-      statusBanner.classList.add('success');
-    }
+    statusBanner.textContent = '';
+    statusBanner.hidden = true;
   };
 
   var formatNumber = function (value) {
@@ -75,6 +87,16 @@
     return getUserEmail(user) || user.id || 'Account';
   };
 
+  var normalizeRole = function (roleValue) {
+    var role = String(roleValue || '')
+      .trim()
+      .toLowerCase();
+    if (!role || role === 'app') {
+      return 'user';
+    }
+    return role;
+  };
+
   var escapeHtml = function (value) {
     return String(value)
       .replaceAll('&', '&amp;')
@@ -102,6 +124,45 @@
     overlay.hidden = false;
   };
 
+  var syncProfileFields = function (user) {
+    if (profileFirstNameInput) {
+      profileFirstNameInput.value = user && user.firstName ? user.firstName : '';
+    }
+    if (profileLastNameInput) {
+      profileLastNameInput.value = user && user.lastName ? user.lastName : '';
+    }
+    if (profileEmailInput) {
+      profileEmailInput.value = getUserEmail(user);
+    }
+  };
+
+  var closeProfilePanel = function () {
+    if (!profilePanel) {
+      return;
+    }
+    profilePanel.hidden = true;
+    profilePanelOpen = false;
+    if (profileButton) {
+      profileButton.setAttribute('aria-expanded', 'false');
+    }
+  };
+
+  var openProfilePanel = function () {
+    if (!profilePanel) {
+      return;
+    }
+    syncProfileFields(currentUser);
+    profilePanel.hidden = false;
+    profilePanelOpen = true;
+    if (profileButton) {
+      profileButton.setAttribute('aria-expanded', 'true');
+    }
+    if (profileFirstNameInput) {
+      profileFirstNameInput.focus();
+      profileFirstNameInput.select();
+    }
+  };
+
   if (sidebar && menuToggle && overlay) {
     menuToggle.addEventListener('click', function () {
       var expanded = menuToggle.getAttribute('aria-expanded') === 'true';
@@ -117,6 +178,7 @@
     document.addEventListener('keydown', function (event) {
       if (event.key === 'Escape') {
         closeSidebar();
+        closeProfilePanel();
       }
     });
 
@@ -169,12 +231,14 @@
       return;
     }
 
-    if (!items || items.length === 0) {
-      activityList.innerHTML = '<li><p>No API activity available.</p><span>Now</span></li>';
+    currentActivityItems = Array.isArray(items) ? items.slice() : [];
+
+    if (currentActivityItems.length === 0) {
+      activityList.innerHTML = '<li><p>Activity feed is clear.</p><span>Now</span></li>';
       return;
     }
 
-    activityList.innerHTML = items
+    activityList.innerHTML = currentActivityItems
       .map(function (item) {
         return (
           '<li><p>' +
@@ -269,32 +333,46 @@
     });
   };
 
-  var apiRequest = async function (path) {
-    var requestHeaders = {};
+  var apiRequest = async function (path, options) {
+    options = options || {};
+    var method = options.method || 'GET';
+    var requestHeaders = options.headers ? Object.assign({}, options.headers) : {};
+    var requestBody = options.body;
+
     if (authToken) {
       requestHeaders.Authorization = 'Bearer ' + authToken;
     }
+    if (requestBody && !(requestBody instanceof FormData)) {
+      requestHeaders['Content-Type'] = 'application/json';
+      requestBody = JSON.stringify(requestBody);
+    }
 
     var response = await window.fetch(API_BASE + path, {
-      method: 'GET',
+      method: method,
       headers: requestHeaders,
-      credentials: 'include'
+      credentials: 'include',
+      body: requestBody
     });
+
+    var body = null;
+    try {
+      var rawText = await response.text();
+      body = rawText ? JSON.parse(rawText) : null;
+    } catch (parseError) {
+      body = null;
+    }
 
     if (!response.ok) {
       var message = 'API request failed';
-      try {
-        var body = await response.json();
-        if (body && body.error) {
-          if (typeof body.error === 'string') {
-            message = body.error;
-          } else if (body.error && typeof body.error.message === 'string') {
-            message = body.error.message;
-          }
-        } else if (body && typeof body.message === 'string') {
-          message = body.message;
+      if (body && body.error) {
+        if (typeof body.error === 'string') {
+          message = body.error;
+        } else if (typeof body.error.message === 'string') {
+          message = body.error.message;
         }
-      } catch (error) {
+      } else if (body && typeof body.message === 'string') {
+        message = body.message;
+      } else {
         message = response.status + ' ' + response.statusText;
       }
 
@@ -303,10 +381,10 @@
       throw requestError;
     }
 
-    return response.json();
+    return body || {};
   };
 
-  var applySummary = function (me, users, health) {
+  var applySummary = function (me, users, health, usedAdminSource) {
     var metadata = me.publicMetadata || {};
 
     if (profileName) {
@@ -327,19 +405,64 @@
     kpiDeploy.textContent = formatNumber(deploySeconds) + 's';
     kpiLeads.textContent = formatNumber(leadsCount);
 
-    kpiProjectsDelta.textContent = users.length > 0 ? 'Synced from /api/admin/users' : 'Synced from /api/me';
+    kpiProjectsDelta.textContent = usedAdminSource ? 'Synced from /api/admin/users' : 'Synced from /api/me';
     kpiSuccessDelta.textContent = 'Source: /api/me publicMetadata';
     kpiDeployDelta.textContent = 'Source: /api/me publicMetadata';
     kpiLeadsDelta.textContent = 'Source: /api/me publicMetadata';
+    setStatus('', health && health.ok ? 'success' : '');
+  };
 
-    setStatus(
-      'Connected to API. Health: ' +
-        (health && health.ok ? 'OK' : 'Unknown') +
-        '. Session: active as ' +
-        (me.role || 'user') +
-        '.',
-      'success'
-    );
+  var signOut = function () {
+    if (clerkInstance) {
+      clerkInstance.signOut().finally(function () {
+        window.location.href = LOGIN_URL;
+      });
+      return;
+    }
+    window.location.href = LOGIN_URL;
+  };
+
+  var saveProfile = async function (event) {
+    event.preventDefault();
+
+    if (!currentUser) {
+      setStatus('Profile is not loaded yet.', 'error');
+      return;
+    }
+
+    var nextFirstName = profileFirstNameInput ? profileFirstNameInput.value.trim() : '';
+    var nextLastName = profileLastNameInput ? profileLastNameInput.value.trim() : '';
+    if (!nextFirstName && !nextLastName) {
+      setStatus('Please enter at least a first name or last name.', 'error');
+      return;
+    }
+
+    try {
+      var payload = {
+        firstName: nextFirstName,
+        lastName: nextLastName
+      };
+      var updateResponse = await apiRequest('/me', { method: 'PATCH', body: payload });
+      var updatedUser = updateResponse.user || updateResponse.data || updateResponse.result || {};
+      currentUser = Object.assign({}, currentUser, payload, updatedUser);
+
+      if (profileName) {
+        profileName.textContent = getUserDisplayName(currentUser);
+      }
+      syncProfileFields(currentUser);
+      closeProfilePanel();
+
+      setActivityItems([
+        {
+          message: 'Profile updated.',
+          time: 'Now'
+        }
+      ].concat(currentActivityItems).slice(0, 6));
+      setStatus('', '');
+    } catch (error) {
+      var message = error && error.message ? error.message : 'Unable to update profile.';
+      setStatus('Profile update failed: ' + message, 'error');
+    }
   };
 
   var wireButtons = function () {
@@ -382,20 +505,52 @@
 
     if (profileButton) {
       profileButton.addEventListener('click', function () {
-        if (clerkInstance) {
-          clerkInstance.signOut().finally(function () {
-            window.location.href = LOGIN_URL;
-          });
+        if (profilePanelOpen) {
+          closeProfilePanel();
         } else {
-          window.location.href = LOGIN_URL;
+          openProfilePanel();
         }
       });
     }
+
+    if (profileCloseButton) {
+      profileCloseButton.addEventListener('click', closeProfilePanel);
+    }
+
+    if (profileForm) {
+      profileForm.addEventListener('submit', function (event) {
+        void saveProfile(event);
+      });
+    }
+
+    if (profileSignoutButton) {
+      profileSignoutButton.addEventListener('click', signOut);
+    }
+
+    if (clearActivityButton) {
+      clearActivityButton.addEventListener('click', function () {
+        setActivityItems([]);
+      });
+    }
+
+    document.addEventListener('click', function (event) {
+      if (!profilePanelOpen) {
+        return;
+      }
+      var target = event.target;
+      if (profilePanel && profilePanel.contains(target)) {
+        return;
+      }
+      if (profileButton && profileButton.contains(target)) {
+        return;
+      }
+      closeProfilePanel();
+    });
   };
 
   var buildRowsFromUsers = function (users) {
     return users.map(function (user) {
-      var role = user.role || 'user';
+      var role = normalizeRole(user.role);
       return {
         name: getUserDisplayName(user),
         status: role === 'admin' ? 'live' : 'draft',
@@ -405,8 +560,9 @@
     });
   };
 
-  var buildActivityFromUsers = function (users, me) {
+  var buildActivityFromUsers = function (users, me, usedAdminSource) {
     var items = [];
+    var meRole = normalizeRole(me && me.role);
 
     if (me) {
       items.push({
@@ -415,15 +571,27 @@
       });
     }
 
-    users.slice(0, 3).forEach(function (user, index) {
+    if (usedAdminSource) {
+      users
+        .filter(function (user) {
+          return !me || user.id !== me.id;
+        })
+        .slice(0, 3)
+        .forEach(function (user, index) {
+          items.push({
+            message: getUserDisplayName(user) + ' synced from /api/admin/users as ' + normalizeRole(user.role),
+            time: index === 0 ? 'Just now' : index + 'm ago'
+          });
+        });
+    } else if (me) {
       items.push({
-        message: getUserDisplayName(user) + ' synced from /api/admin/users as ' + (user.role || 'user'),
-        time: index === 0 ? 'Just now' : index + 'm ago'
+        message: 'Profile loaded from /api/me as ' + meRole + '.',
+        time: 'Just now'
       });
-    });
+    }
 
     if (items.length === 0) {
-      items.push({ message: 'No API activity available.', time: 'Now' });
+      items.push({ message: 'Activity feed is clear.', time: 'Now' });
     }
 
     return items;
@@ -457,8 +625,12 @@
         throw new Error('No user payload returned from /api/me');
       }
 
+      currentUser = meUser;
+      syncProfileFields(meUser);
+
       var users = [];
-      if ((meUser.role || '').toLowerCase() === 'admin') {
+      var usedAdminSource = false;
+      if (normalizeRole(meUser.role) === 'admin') {
         try {
           var adminResponse = await apiRequest('/admin/users');
           if (Array.isArray(adminResponse.users)) {
@@ -470,17 +642,20 @@
           } else {
             users = [];
           }
+          usedAdminSource = users.length > 0;
         } catch (adminError) {
           users = [];
+          usedAdminSource = false;
         }
       }
 
       if (users.length === 0) {
         users = [meUser];
+        usedAdminSource = false;
       }
 
       setTableRows(buildRowsFromUsers(users));
-      setActivityItems(buildActivityFromUsers(users, meUser));
+      setActivityItems(buildActivityFromUsers(users, meUser, usedAdminSource));
 
       var health = null;
       try {
@@ -489,7 +664,7 @@
         health = null;
       }
 
-      applySummary(meUser, users, health);
+      applySummary(meUser, users, health, usedAdminSource);
     } catch (error) {
       var message = error && error.message ? error.message : 'Unknown dashboard error.';
       setStatus('API connection failed: ' + message, 'error');

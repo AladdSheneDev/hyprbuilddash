@@ -68,17 +68,75 @@
           <div class="topbar-right">
             <button id="export-button" type="button" class="btn btn-secondary">Export</button>
             <button id="new-project-button" type="button" class="btn btn-primary">New Project</button>
-            <button id="profile-button" type="button" class="profile" aria-label="Sign out">
+            <button
+              id="profile-button"
+              type="button"
+              class="profile"
+              aria-label="Open profile options"
+              aria-haspopup="dialog"
+              aria-expanded="false"
+              aria-controls="profile-panel"
+            >
               <span class="profile-dot" aria-hidden="true"></span>
               <span id="profile-name">Loading...</span>
             </button>
           </div>
         </header>
 
+        <section
+          id="profile-panel"
+          class="profile-panel"
+          role="dialog"
+          aria-modal="false"
+          aria-labelledby="profile-panel-title"
+          hidden
+        >
+          <div class="profile-panel-head">
+            <h2 id="profile-panel-title">Profile</h2>
+            <button id="profile-close-button" type="button" class="icon-close" aria-label="Close profile panel">
+              ×
+            </button>
+          </div>
+          <form id="profile-form" class="profile-form" novalidate>
+            <label for="profile-first-name" class="field-label">First name</label>
+            <input
+              id="profile-first-name"
+              class="field-input"
+              type="text"
+              name="firstName"
+              autocomplete="given-name"
+              maxlength="80"
+            />
+
+            <label for="profile-last-name" class="field-label">Last name</label>
+            <input
+              id="profile-last-name"
+              class="field-input"
+              type="text"
+              name="lastName"
+              autocomplete="family-name"
+              maxlength="80"
+            />
+
+            <label for="profile-email" class="field-label">Email</label>
+            <input id="profile-email" class="field-input is-disabled" type="email" name="email" disabled />
+
+            <div class="profile-actions">
+              <button type="submit" class="btn btn-primary" aria-label="Save profile">Save</button>
+              <button
+                id="profile-signout-button"
+                type="button"
+                class="btn btn-secondary"
+                aria-label="Sign out of dashboard"
+              >
+                Sign Out
+              </button>
+            </div>
+          </form>
+        </section>
+
         <main id="main-content" class="content" tabindex="-1">
-          <section id="api-status" class="status-banner" role="status" aria-live="polite">
-            Connecting to Hyprbuild API...
-          </section>
+          <section id="api-status" class="status-banner" role="status" aria-live="polite" hidden></section>
 
           <section class="stats" aria-label="Performance summary">
             <article class="card stat-card">
@@ -138,7 +196,17 @@
             </article>
 
             <article class="card activity-card">
-              <h2>Activity Feed</h2>
+              <div class="card-head">
+                <h2>Activity Feed</h2>
+                <button
+                  id="clear-activity-button"
+                  type="button"
+                  class="btn btn-secondary btn-inline"
+                  aria-label="Clear activity feed"
+                >
+                  Clear
+                </button>
+              </div>
               <ul id="activity-list" class="activity-list">
                 <li>
                   <p>Waiting for API activity...</p>

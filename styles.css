@@ -208,6 +208,11 @@ body {
   cursor: pointer;
 }
 
+.btn-inline {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.75rem;
+}
+
 .btn-primary {
   color: #0b1120;
   background: linear-gradient(135deg, var(--primary), var(--secondary));
@@ -240,6 +245,92 @@ body {
   background: linear-gradient(130deg, var(--primary), var(--secondary));
 }
 
+.profile-panel[hidden] {
+  display: none;
+}
+
+.profile-panel {
+  position: fixed;
+  top: 5.6rem;
+  right: 1.4rem;
+  width: min(24rem, calc(100vw - 2rem));
+  border: 1px solid var(--line);
+  border-radius: 0.95rem;
+  background: rgba(24, 28, 39, 0.98);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+  padding: 0.9rem;
+  z-index: 60;
+}
+
+.profile-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.profile-panel-head h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.icon-close {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.55rem;
+  line-height: 1;
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+.profile-form {
+  margin-top: 0.75rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.field-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.field-input {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  border-radius: 0.65rem;
+  padding: 0.56rem 0.7rem;
+  font-family: inherit;
+  font-size: 0.86rem;
+}
+
+.field-input:focus-visible {
+  outline: 2px solid rgba(34, 211, 238, 0.4);
+  outline-offset: 1px;
+}
+
+.field-input.is-disabled {
+  color: #cbd5e1;
+  opacity: 0.8;
+}
+
+.profile-actions {
+  margin-top: 0.5rem;
+  display: flex;
+  gap: 0.6rem;
+}
+
+.profile-actions .btn {
+  flex: 1;
+}
+
 .content {
   padding: 1.4rem;
   display: grid;
@@ -253,6 +344,10 @@ body {
   padding: 0.65rem 0.85rem;
   font-size: 0.82rem;
   color: #dbeafe;
+}
+
+.status-banner[hidden] {
+  display: none;
 }
 
 .status-banner.error {
@@ -508,5 +603,12 @@ th {
 
   .stats {
     grid-template-columns: 1fr;
+  }
+
+  .profile-panel {
+    top: 4.8rem;
+    right: 1rem;
+    left: 1rem;
+    width: auto;
   }
 }
