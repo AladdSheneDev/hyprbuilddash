@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Hyprbuild Dashboard" />
+    <meta name="theme-color" content="#181c27" />
+    <title>Hyprbuild Dashboard</title>
+    <link rel="icon" type="image/png" href="assets/faviconlogo.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+
+    <div class="app-shell">
+      <aside id="sidebar" class="sidebar" aria-label="Dashboard navigation">
+        <a href="#" class="brand" aria-label="Hyprbuild dashboard home">
+          <img src="assets/faviconlogo.png" alt="Hyprbuild logo" class="brand-logo" />
+          <span class="brand-text">Hyprbuild</span>
+        </a>
+
+        <nav class="nav-list" aria-label="Primary">
+          <a href="#" class="nav-item is-active" aria-current="page">Overview</a>
+          <a href="#" class="nav-item">Projects</a>
+          <a href="#" class="nav-item">Templates</a>
+          <a href="#" class="nav-item">Deployments</a>
+          <a href="#" class="nav-item">Analytics</a>
+          <a href="#" class="nav-item">Billing</a>
+          <a href="#" class="nav-item">Settings</a>
+        </nav>
+
+        <div class="sidebar-cta">
+          <p class="sidebar-cta-title">Need a new build?</p>
+          <p class="sidebar-cta-copy">Generate another website architecture plan in minutes.</p>
+          <button id="sidebar-create-project" type="button" class="btn btn-primary">Create Project</button>
+        </div>
+      </aside>
+
+      <div id="overlay" class="overlay" hidden></div>
+
+      <div class="main-wrap">
+        <header class="topbar">
+          <div class="topbar-left">
+            <button
+              id="menu-toggle"
+              class="icon-button"
+              type="button"
+              aria-label="Toggle sidebar"
+              aria-controls="sidebar"
+              aria-expanded="false"
+            >
+              <span></span>
+              <span></span>
+              <span></span>
+            </button>
+            <div>
+              <p class="eyebrow">Dashboard</p>
+              <h1>Overview</h1>
+            </div>
+          </div>
+
+          <div class="topbar-right">
+            <button id="export-button" type="button" class="btn btn-secondary">Export</button>
+            <button id="new-project-button" type="button" class="btn btn-primary">New Project</button>
+            <button id="profile-button" type="button" class="profile" aria-label="Sign out">
+              <span class="profile-dot" aria-hidden="true"></span>
+              <span id="profile-name">Loading...</span>
+            </button>
+          </div>
+        </header>
+
+        <main id="main-content" class="content" tabindex="-1">
+          <section id="api-status" class="status-banner" role="status" aria-live="polite">
+            Connecting to Hyprbuild API...
+          </section>
+
+          <section class="stats" aria-label="Performance summary">
+            <article class="card stat-card">
+              <p class="label">Active projects</p>
+              <p class="value" data-kpi="projects" id="kpi-projects">--</p>
+              <p class="delta neutral" id="kpi-projects-delta">Waiting for API</p>
+            </article>
+
+            <article class="card stat-card">
+              <p class="label">Build success rate</p>
+              <p class="value" data-kpi="success" id="kpi-success">--</p>
+              <p class="delta neutral" id="kpi-success-delta">Waiting for API</p>
+            </article>
+
+            <article class="card stat-card">
+              <p class="label">Avg deploy time</p>
+              <p class="value" data-kpi="deploy" id="kpi-deploy">--</p>
+              <p class="delta neutral" id="kpi-deploy-delta">Waiting for API</p>
+            </article>
+
+            <article class="card stat-card">
+              <p class="label">Leads captured</p>
+              <p class="value" data-kpi="leads" id="kpi-leads">--</p>
+              <p class="delta neutral" id="kpi-leads-delta">Waiting for API</p>
+            </article>
+          </section>
+
+          <section class="grid-two" aria-label="Projects and activity">
+            <article class="card projects-card">
+              <div class="card-head">
+                <h2>Live API Records</h2>
+                <div class="filters" role="group" aria-label="Project filter">
+                  <button class="pill is-active" type="button" data-filter="all">All</button>
+                  <button class="pill" type="button" data-filter="live">Live</button>
+                  <button class="pill" type="button" data-filter="draft">Draft</button>
+                </div>
+              </div>
+
+              <div class="table-wrap">
+                <table>
+                  <caption class="sr-only">Project list</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Name</th>
+                      <th scope="col">Status</th>
+                      <th scope="col">Role</th>
+                      <th scope="col">Email</th>
+                    </tr>
+                  </thead>
+                  <tbody id="project-table-body">
+                    <tr data-status="draft">
+                      <td colspan="4">Loading records from API...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="card activity-card">
+              <h2>Activity Feed</h2>
+              <ul id="activity-list" class="activity-list">
+                <li>
+                  <p>Waiting for API activity...</p>
+                  <span>Now</span>
+                </li>
+              </ul>
+            </article>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <script src="app.js" defer></script>
+  </body>
+</html>
