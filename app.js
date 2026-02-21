@@ -51,6 +51,30 @@
     return value.toLocaleString();
   };
 
+  var getUserEmail = function (user) {
+    if (!user) {
+      return '';
+    }
+    return user.primaryEmailAddress || user.email || '';
+  };
+
+  var getUserDisplayName = function (user) {
+    if (!user) {
+      return 'Account';
+    }
+
+    if (user.fullName && String(user.fullName).trim()) {
+      return String(user.fullName).trim();
+    }
+
+    var combined = [user.firstName || '', user.lastName || ''].join(' ').trim();
+    if (combined) {
+      return combined;
+    }
+
+    return getUserEmail(user) || user.id || 'Account';
+  };
+
   var escapeHtml = function (value) {
     return String(value)
       .replaceAll('&', '&amp;')
@@ -246,11 +270,14 @@
   };
 
   var apiRequest = async function (path) {
+    var requestHeaders = {};
+    if (authToken) {
+      requestHeaders.Authorization = 'Bearer ' + authToken;
+    }
+
     var response = await window.fetch(API_BASE + path, {
       method: 'GET',
-      headers: {
-        Authorization: authToken ? 'Bearer ' + authToken : ''
-      },
+      headers: requestHeaders,
       credentials: 'include'
     });
 
@@ -259,7 +286,13 @@
       try {
         var body = await response.json();
         if (body && body.error) {
-          message = body.error;
+          if (typeof body.error === 'string') {
+            message = body.error;
+          } else if (body.error && typeof body.error.message === 'string') {
+            message = body.error.message;
+          }
+        } else if (body && typeof body.message === 'string') {
+          message = body.message;
         }
       } catch (error) {
         message = response.status + ' ' + response.statusText;
@@ -274,19 +307,20 @@
   };
 
   var applySummary = function (me, users, health) {
+    var metadata = me.publicMetadata || {};
+
     if (profileName) {
-      var fallbackName = me.primaryEmailAddress || 'Account';
-      profileName.textContent = me.fullName && me.fullName.trim() ? me.fullName : fallbackName;
+      profileName.textContent = getUserDisplayName(me);
     }
 
-    var projectsCount = users.length > 0 ? users.length : Number(me.publicMetadata.activeProjects || 0);
+    var projectsCount = users.length > 0 ? users.length : Number(metadata.activeProjects || 0);
     if (!projectsCount) {
       projectsCount = 1;
     }
 
-    var successRate = Number(me.publicMetadata.successRate || 97);
-    var deploySeconds = Number(me.publicMetadata.avgDeploySeconds || 43);
-    var leadsCount = Number(me.publicMetadata.leadsCaptured || 0);
+    var successRate = Number(metadata.successRate || 97);
+    var deploySeconds = Number(metadata.avgDeploySeconds || 43);
+    var leadsCount = Number(metadata.leadsCaptured || 0);
 
     kpiProjects.textContent = formatNumber(projectsCount);
     kpiSuccess.textContent = formatNumber(successRate) + '%';
@@ -363,10 +397,10 @@
     return users.map(function (user) {
       var role = user.role || 'user';
       return {
-        name: user.fullName || user.firstName || user.id || 'Unknown user',
+        name: getUserDisplayName(user),
         status: role === 'admin' ? 'live' : 'draft',
         role: role,
-        email: user.primaryEmailAddress || ''
+        email: getUserEmail(user)
       };
     });
   };
@@ -376,17 +410,14 @@
 
     if (me) {
       items.push({
-        message: 'Authenticated as ' + (me.fullName || me.primaryEmailAddress || me.id),
+        message: 'Authenticated as ' + getUserDisplayName(me),
         time: 'Now'
       });
     }
 
     users.slice(0, 3).forEach(function (user, index) {
       items.push({
-        message:
-          (user.fullName || user.primaryEmailAddress || 'User') +
-          ' synced from /api/admin/users as ' +
-          (user.role || 'user'),
+        message: getUserDisplayName(user) + ' synced from /api/admin/users as ' + (user.role || 'user'),
         time: index === 0 ? 'Just now' : index + 'm ago'
       });
     });
@@ -420,9 +451,9 @@
 
       var healthPromise = apiRequest('/health');
       var meResponse = await apiRequest('/me');
-      var meUser = meResponse.user || null;
+      var meUser = meResponse.user || meResponse.data || meResponse.result || null;
 
-      if (!meUser) {
+      if (!meUser || !meUser.id) {
         throw new Error('No user payload returned from /api/me');
       }
 
@@ -430,7 +461,15 @@
       if ((meUser.role || '').toLowerCase() === 'admin') {
         try {
           var adminResponse = await apiRequest('/admin/users');
-          users = Array.isArray(adminResponse.users) ? adminResponse.users : [];
+          if (Array.isArray(adminResponse.users)) {
+            users = adminResponse.users;
+          } else if (Array.isArray(adminResponse.data)) {
+            users = adminResponse.data;
+          } else if (Array.isArray(adminResponse.result)) {
+            users = adminResponse.result;
+          } else {
+            users = [];
+          }
         } catch (adminError) {
           users = [];
         }
