@@ -18,6 +18,7 @@
   var clearActivityButton = document.getElementById('clear-activity-button');
   var viewOverview = document.getElementById('view-overview');
   var viewSettings = document.getElementById('view-settings');
+  var viewNewProject = document.getElementById('view-new-project');
   var settingsNameForm = document.getElementById('settings-name-form');
   var settingsPhotoForm = document.getElementById('settings-photo-form');
   var settingsEmailForm = document.getElementById('settings-email-form');
@@ -33,6 +34,29 @@
   var settingsConfirmPasswordInput = document.getElementById('settings-confirm-password');
   var settingsAvatarPreview = document.getElementById('settings-avatar-preview');
   var settingsFeedback = document.getElementById('settings-feedback');
+  var projectFlowSteps = Array.from(document.querySelectorAll('#project-flow-steps [data-step]'));
+  var projectStepPanes = Array.from(document.querySelectorAll('.project-step-pane'));
+  var planCards = Array.from(document.querySelectorAll('.plan-card[data-plan-key]'));
+  var projectFlowError = document.getElementById('project-flow-error');
+  var projectNameInput = document.getElementById('project-name-input');
+  var domainRootInput = document.getElementById('domain-root-input');
+  var domainCheckButton = document.getElementById('domain-check-button');
+  var domainResults = document.getElementById('domain-results');
+  var selectedDomainLine = document.getElementById('selected-domain-line');
+  var useSubdomainCheckbox = document.getElementById('use-subdomain-checkbox');
+  var subdomainInput = document.getElementById('subdomain-input');
+  var subdomainPurposeInput = document.getElementById('subdomain-purpose-input');
+  var websitePromptInput = document.getElementById('website-prompt-input');
+  var projectBackButton = document.getElementById('project-back-button');
+  var projectNextButton = document.getElementById('project-next-button');
+  var checkoutButton = document.getElementById('checkout-button');
+  var checkoutPlan = document.getElementById('checkout-plan');
+  var checkoutProjectName = document.getElementById('checkout-project-name');
+  var checkoutDomain = document.getElementById('checkout-domain');
+  var checkoutDomainCost = document.getElementById('checkout-domain-cost');
+  var checkoutSubdomain = document.getElementById('checkout-subdomain');
+  var checkoutSubdomainUse = document.getElementById('checkout-subdomain-use');
+  var checkoutTotal = document.getElementById('checkout-total');
 
   var kpiProjects = document.getElementById('kpi-projects');
   var kpiSuccess = document.getElementById('kpi-success');
@@ -53,6 +77,31 @@
   var currentUser = null;
   var currentActivityItems = [];
   var currentView = 'overview';
+  var projectFlowStep = 1;
+  var projectFlowState = {
+    planKey: '',
+    projectName: '',
+    domainRoot: '',
+    selectedDomain: null,
+    useSubdomain: false,
+    subdomain: '',
+    subdomainPurpose: '',
+    prompt: ''
+  };
+
+  var PLAN_OPTIONS = {
+    starter: { label: 'Starter Site', price: 59 },
+    pro: { label: 'Pro Site', price: 99 },
+    business: { label: 'Business Site', price: 179 }
+  };
+
+  var DOMAIN_PRICE_MAP = {
+    '.com': 14,
+    '.ai': 79,
+    '.io': 49,
+    '.app': 22,
+    '.dev': 18
+  };
 
   var setStatus = function (message, kind) {
     if (!statusBanner) {
@@ -74,6 +123,25 @@
       return '--';
     }
     return value.toLocaleString();
+  };
+
+  var formatCurrency = function (value) {
+    if (typeof value !== 'number' || Number.isNaN(value)) {
+      return '$0';
+    }
+    return '$' + value.toFixed(0);
+  };
+
+  var cleanDomainRoot = function (value) {
+    return String(value || '')
+      .toLowerCase()
+      .trim()
+      .replace(/^https?:\/\//, '')
+      .replace(/^www\./, '')
+      .replace(/\..*$/, '')
+      .replace(/[^a-z0-9-]/g, '')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
   };
 
   var parseOptionalNumber = function (value) {
@@ -205,15 +273,22 @@
       .replace(/^#/, '')
       .trim()
       .toLowerCase();
-    return route === 'settings' ? 'settings' : 'overview';
+    if (route === 'settings') {
+      return 'settings';
+    }
+    if (route === 'new-project') {
+      return 'new-project';
+    }
+    return 'overview';
   };
 
   var setCurrentView = function (route, syncHash) {
-    var nextView = route === 'settings' ? 'settings' : 'overview';
+    var nextView = route === 'settings' || route === 'new-project' ? route : 'overview';
     currentView = nextView;
 
     var showOverview = nextView === 'overview';
     var showSettings = nextView === 'settings';
+    var showNewProject = nextView === 'new-project';
 
     if (viewOverview) {
       viewOverview.hidden = !showOverview;
@@ -222,6 +297,10 @@
     if (viewSettings) {
       viewSettings.hidden = !showSettings;
       viewSettings.style.display = showSettings ? 'grid' : 'none';
+    }
+    if (viewNewProject) {
+      viewNewProject.hidden = !showNewProject;
+      viewNewProject.style.display = showNewProject ? 'grid' : 'none';
     }
 
     routeLinks.forEach(function (link) {
@@ -236,13 +315,19 @@
     });
 
     if (pageTitle) {
-      pageTitle.textContent = nextView === 'settings' ? 'Settings' : 'Overview';
+      pageTitle.textContent = nextView === 'settings' ? 'Settings' : nextView === 'new-project' ? 'New Project' : 'Overview';
     }
     if (pageKicker) {
       pageKicker.textContent = 'Dashboard';
     }
     if (profileButton) {
       profileButton.setAttribute('aria-expanded', nextView === 'settings' ? 'true' : 'false');
+    }
+    if (exportButton) {
+      exportButton.hidden = nextView !== 'overview';
+    }
+    if (newProjectButton) {
+      newProjectButton.hidden = nextView === 'new-project';
     }
 
     if (syncHash) {
@@ -266,6 +351,273 @@
     if (settingsAvatarPreview) {
       settingsAvatarPreview.src = user && user.imageUrl ? user.imageUrl : 'assets/faviconlogo.png';
     }
+  };
+
+  var setProjectFlowError = function (message) {
+    if (!projectFlowError) {
+      return;
+    }
+    projectFlowError.textContent = message || '';
+  };
+
+  var setPlanSelection = function (planKey) {
+    projectFlowState.planKey = planKey in PLAN_OPTIONS ? planKey : '';
+    planCards.forEach(function (card) {
+      var isSelected = card.getAttribute('data-plan-key') === projectFlowState.planKey;
+      card.classList.toggle('is-selected', isSelected);
+      card.setAttribute('aria-checked', isSelected ? 'true' : 'false');
+    });
+  };
+
+  var setDomainSelectedLine = function () {
+    if (!selectedDomainLine) {
+      return;
+    }
+    if (projectFlowState.selectedDomain) {
+      selectedDomainLine.textContent =
+        'Selected domain: ' +
+        projectFlowState.selectedDomain.name +
+        ' (' +
+        formatCurrency(projectFlowState.selectedDomain.price) +
+        '/yr)';
+      return;
+    }
+    selectedDomainLine.textContent = 'No domain selected.';
+  };
+
+  var buildDomainOptions = function (root) {
+    var reservedRoots = ['google', 'facebook', 'apple', 'amazon', 'openai', 'hyprbuild'];
+    return Object.keys(DOMAIN_PRICE_MAP).map(function (tld) {
+      var fqdn = root + tld;
+      var unavailable = reservedRoots.includes(root) || fqdn.length < 4;
+      return {
+        root: root,
+        tld: tld,
+        name: fqdn,
+        price: DOMAIN_PRICE_MAP[tld],
+        available: !unavailable
+      };
+    });
+  };
+
+  var renderDomainOptions = function (options) {
+    if (!domainResults) {
+      return;
+    }
+
+    if (!options || options.length === 0) {
+      domainResults.innerHTML = '';
+      return;
+    }
+
+    domainResults.innerHTML = options
+      .map(function (option) {
+        var selected = projectFlowState.selectedDomain && projectFlowState.selectedDomain.name === option.name;
+        var className = 'domain-row' + (option.available ? '' : ' is-unavailable') + (selected ? ' is-selected' : '');
+        return (
+          '<div class="' +
+          className +
+          '">' +
+          '<div class="meta"><span class="name">' +
+          escapeHtml(option.name) +
+          '</span><span class="cost">' +
+          formatCurrency(option.price) +
+          '/yr</span></div>' +
+          (option.available
+            ? '<button type="button" class="btn btn-secondary btn-inline" data-domain-select="' +
+              escapeHtml(option.name) +
+              '">Select</button>'
+            : '<span class="project-hint">Unavailable</span>') +
+          '</div>'
+        );
+      })
+      .join('');
+
+    Array.from(domainResults.querySelectorAll('[data-domain-select]')).forEach(function (button) {
+      button.addEventListener('click', function () {
+        var name = button.getAttribute('data-domain-select');
+        var selectedOption = options.find(function (option) {
+          return option.name === name;
+        });
+        if (!selectedOption || !selectedOption.available) {
+          return;
+        }
+        projectFlowState.selectedDomain = {
+          name: selectedOption.name,
+          price: selectedOption.price
+        };
+        renderDomainOptions(options);
+        setDomainSelectedLine();
+      });
+    });
+  };
+
+  var updateSubdomainFields = function () {
+    var enabled = !!(useSubdomainCheckbox && useSubdomainCheckbox.checked);
+    projectFlowState.useSubdomain = enabled;
+
+    if (subdomainInput) {
+      subdomainInput.disabled = !enabled;
+      if (!enabled) {
+        subdomainInput.value = '';
+      }
+    }
+    if (subdomainPurposeInput) {
+      subdomainPurposeInput.disabled = !enabled;
+      if (!enabled) {
+        subdomainPurposeInput.value = '';
+      }
+    }
+  };
+
+  var updateCheckoutSummary = function () {
+    var selectedPlan = projectFlowState.planKey ? PLAN_OPTIONS[projectFlowState.planKey] : null;
+    var planPrice = selectedPlan ? selectedPlan.price : 0;
+    var domainPrice = projectFlowState.selectedDomain ? projectFlowState.selectedDomain.price : 0;
+    var total = planPrice + domainPrice;
+
+    if (checkoutPlan) {
+      checkoutPlan.textContent = selectedPlan ? selectedPlan.label + ' ' + formatCurrency(selectedPlan.price) : '--';
+    }
+    if (checkoutProjectName) {
+      checkoutProjectName.textContent = projectFlowState.projectName || '--';
+    }
+    if (checkoutDomain) {
+      checkoutDomain.textContent = projectFlowState.selectedDomain ? projectFlowState.selectedDomain.name : '--';
+    }
+    if (checkoutDomainCost) {
+      checkoutDomainCost.textContent = formatCurrency(domainPrice);
+    }
+    if (checkoutSubdomain) {
+      checkoutSubdomain.textContent =
+        projectFlowState.useSubdomain && projectFlowState.subdomain
+          ? projectFlowState.subdomain + '.' + (projectFlowState.selectedDomain ? projectFlowState.selectedDomain.name : '')
+          : 'None';
+    }
+    if (checkoutSubdomainUse) {
+      checkoutSubdomainUse.textContent = projectFlowState.useSubdomain ? projectFlowState.subdomainPurpose || '--' : 'N/A';
+    }
+    if (checkoutTotal) {
+      checkoutTotal.textContent = formatCurrency(total);
+    }
+  };
+
+  var renderProjectFlowStep = function () {
+    projectStepPanes.forEach(function (pane, index) {
+      var isCurrent = index + 1 === projectFlowStep;
+      pane.hidden = !isCurrent;
+    });
+
+    projectFlowSteps.forEach(function (item) {
+      var itemStep = Number(item.getAttribute('data-step') || 0);
+      item.classList.toggle('is-active', itemStep === projectFlowStep);
+    });
+
+    if (projectBackButton) {
+      projectBackButton.disabled = projectFlowStep === 1;
+    }
+    if (projectNextButton) {
+      projectNextButton.hidden = projectFlowStep === 5;
+      projectNextButton.textContent = 'Next';
+    }
+
+    if (projectFlowStep === 5) {
+      updateCheckoutSummary();
+    }
+  };
+
+  var validateProjectStep = function (step) {
+    if (step === 1) {
+      if (!projectFlowState.planKey) {
+        setProjectFlowError('Select a plan to continue.');
+        return false;
+      }
+    }
+
+    if (step === 2) {
+      projectFlowState.projectName = projectNameInput ? projectNameInput.value.trim() : '';
+      projectFlowState.domainRoot = cleanDomainRoot(domainRootInput ? domainRootInput.value : '');
+
+      if (!projectFlowState.projectName) {
+        setProjectFlowError('Enter a project name.');
+        return false;
+      }
+      if (!projectFlowState.domainRoot) {
+        setProjectFlowError('Enter a domain name and browse pricing.');
+        return false;
+      }
+      if (!projectFlowState.selectedDomain) {
+        setProjectFlowError('Select a domain from the pricing list.');
+        return false;
+      }
+    }
+
+    if (step === 3) {
+      updateSubdomainFields();
+      projectFlowState.subdomain = cleanDomainRoot(subdomainInput ? subdomainInput.value : '');
+      projectFlowState.subdomainPurpose = subdomainPurposeInput ? subdomainPurposeInput.value.trim() : '';
+      if (projectFlowState.useSubdomain) {
+        if (!projectFlowState.subdomain) {
+          setProjectFlowError('Enter the subdomain you want to use.');
+          return false;
+        }
+        if (!projectFlowState.subdomainPurpose) {
+          setProjectFlowError('Tell us what the subdomain will be used for.');
+          return false;
+        }
+      }
+    }
+
+    if (step === 4) {
+      projectFlowState.prompt = websitePromptInput ? websitePromptInput.value.trim() : '';
+      if (projectFlowState.prompt.length < 20) {
+        setProjectFlowError('Add a more detailed website prompt (at least 20 characters).');
+        return false;
+      }
+    }
+
+    setProjectFlowError('');
+    return true;
+  };
+
+  var resetProjectFlow = function () {
+    projectFlowStep = 1;
+    projectFlowState = {
+      planKey: '',
+      projectName: '',
+      domainRoot: '',
+      selectedDomain: null,
+      useSubdomain: false,
+      subdomain: '',
+      subdomainPurpose: '',
+      prompt: ''
+    };
+    setPlanSelection('');
+    setProjectFlowError('');
+    if (projectNameInput) {
+      projectNameInput.value = '';
+    }
+    if (domainRootInput) {
+      domainRootInput.value = '';
+    }
+    if (domainResults) {
+      domainResults.innerHTML = '';
+    }
+    setDomainSelectedLine();
+    if (useSubdomainCheckbox) {
+      useSubdomainCheckbox.checked = false;
+    }
+    if (subdomainInput) {
+      subdomainInput.value = '';
+    }
+    if (subdomainPurposeInput) {
+      subdomainPurposeInput.value = '';
+    }
+    if (websitePromptInput) {
+      websitePromptInput.value = '';
+    }
+    updateSubdomainFields();
+    renderProjectFlowStep();
   };
 
   if (sidebar && menuToggle && overlay) {
@@ -716,7 +1068,11 @@
 
   var wireButtons = function () {
     var openNewProject = function () {
-      window.location.href = 'https://hyprbuild.app';
+      resetProjectFlow();
+      setCurrentView('new-project', true);
+      if (planCards.length > 0) {
+        planCards[0].focus();
+      }
     };
 
     if (sidebarCreateProject) {
@@ -808,6 +1164,93 @@
         setActivityItems([]);
       });
     }
+
+    planCards.forEach(function (card) {
+      card.addEventListener('click', function () {
+        setPlanSelection(card.getAttribute('data-plan-key') || '');
+        setProjectFlowError('');
+      });
+    });
+
+    if (domainCheckButton) {
+      domainCheckButton.addEventListener('click', function () {
+        var domainRoot = cleanDomainRoot(domainRootInput ? domainRootInput.value : '');
+        projectFlowState.domainRoot = domainRoot;
+        if (!domainRoot) {
+          if (domainResults) {
+            domainResults.innerHTML = '';
+          }
+          projectFlowState.selectedDomain = null;
+          setDomainSelectedLine();
+          setProjectFlowError('Enter a valid domain name to browse pricing.');
+          return;
+        }
+        var options = buildDomainOptions(domainRoot);
+        if (projectFlowState.selectedDomain && !projectFlowState.selectedDomain.name.startsWith(domainRoot + '.')) {
+          projectFlowState.selectedDomain = null;
+        }
+        renderDomainOptions(options);
+        setDomainSelectedLine();
+        setProjectFlowError('');
+      });
+    }
+
+    if (domainRootInput) {
+      domainRootInput.addEventListener('input', function () {
+        var root = cleanDomainRoot(domainRootInput.value);
+        if (projectFlowState.selectedDomain && !projectFlowState.selectedDomain.name.startsWith(root + '.')) {
+          projectFlowState.selectedDomain = null;
+          setDomainSelectedLine();
+        }
+      });
+    }
+
+    if (projectNameInput) {
+      projectNameInput.addEventListener('input', function () {
+        if (!domainRootInput) {
+          return;
+        }
+        if (domainRootInput.value.trim()) {
+          return;
+        }
+        domainRootInput.value = cleanDomainRoot(projectNameInput.value);
+      });
+    }
+
+    if (useSubdomainCheckbox) {
+      useSubdomainCheckbox.addEventListener('change', function () {
+        updateSubdomainFields();
+        setProjectFlowError('');
+      });
+    }
+
+    if (projectBackButton) {
+      projectBackButton.addEventListener('click', function () {
+        if (projectFlowStep > 1) {
+          projectFlowStep -= 1;
+          setProjectFlowError('');
+          renderProjectFlowStep();
+        }
+      });
+    }
+
+    if (projectNextButton) {
+      projectNextButton.addEventListener('click', function () {
+        if (!validateProjectStep(projectFlowStep)) {
+          return;
+        }
+        if (projectFlowStep < 5) {
+          projectFlowStep += 1;
+          renderProjectFlowStep();
+        }
+      });
+    }
+
+    if (checkoutButton) {
+      checkoutButton.addEventListener('click', function () {
+        setProjectFlowError('Checkout integration is next. Your project setup is ready.');
+      });
+    }
   };
 
   var buildRowsFromUsers = function (users) {
@@ -861,6 +1304,7 @@
 
   var boot = async function () {
     wireButtons();
+    resetProjectFlow();
     if (!window.location.hash) {
       window.history.replaceState(null, '', '#overview');
     }

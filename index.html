@@ -13,7 +13,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=20260222-1" />
+    <link rel="stylesheet" href="styles.css?v=20260222-2" />
   </head>
   <body>
     <a class="skip-link" href="#main-content">Skip to content</a>
@@ -27,6 +27,7 @@
 
         <nav class="nav-list" aria-label="Primary">
           <a href="#overview" class="nav-item is-active" data-route="overview" aria-current="page">Overview</a>
+          <a href="#new-project" class="nav-item" data-route="new-project">New Project</a>
           <a href="#" class="nav-item">Projects</a>
           <a href="#" class="nav-item">Templates</a>
           <a href="#" class="nav-item">Deployments</a>
@@ -273,10 +274,145 @@
               <p id="settings-feedback" class="settings-feedback" role="status" aria-live="polite"></p>
             </article>
           </section>
+
+          <section id="view-new-project" class="project-flow-view" aria-labelledby="new-project-title" hidden>
+            <article class="card project-flow-card">
+              <div class="card-head">
+                <h2 id="new-project-title">Create New Project</h2>
+              </div>
+              <p class="project-flow-intro">Set your plan, domain, and build details before checkout.</p>
+
+              <ol id="project-flow-steps" class="project-flow-steps" aria-label="Project setup steps">
+                <li class="is-active" data-step="1">1. Plan</li>
+                <li data-step="2">2. Domain</li>
+                <li data-step="3">3. Subdomain</li>
+                <li data-step="4">4. Prompt</li>
+                <li data-step="5">5. Checkout</li>
+              </ol>
+
+              <p id="project-flow-error" class="project-flow-error" role="alert" aria-live="polite"></p>
+
+              <div id="project-step-1" class="project-step-pane">
+                <h3 class="settings-subtitle">Choose Plan</h3>
+                <div class="plan-grid" role="radiogroup" aria-label="Website plan">
+                  <button type="button" class="plan-card" data-plan-key="starter" role="radio" aria-checked="false">
+                    <p class="plan-name">Starter Site</p>
+                    <p class="plan-price">$59</p>
+                    <p class="plan-copy">Best for personal pages and simple launches.</p>
+                  </button>
+                  <button type="button" class="plan-card" data-plan-key="pro" role="radio" aria-checked="false">
+                    <p class="plan-name">Pro Site</p>
+                    <p class="plan-price">$99</p>
+                    <p class="plan-copy">Ideal for small business websites that need polish.</p>
+                  </button>
+                  <button type="button" class="plan-card" data-plan-key="business" role="radio" aria-checked="false">
+                    <p class="plan-name">Business Site</p>
+                    <p class="plan-price">$179</p>
+                    <p class="plan-copy">Built for bigger projects with advanced refinement.</p>
+                  </button>
+                </div>
+              </div>
+
+              <div id="project-step-2" class="project-step-pane" hidden>
+                <h3 class="settings-subtitle">Project + Domain</h3>
+
+                <label for="project-name-input" class="field-label">Project name</label>
+                <input
+                  id="project-name-input"
+                  class="field-input"
+                  type="text"
+                  maxlength="80"
+                  autocomplete="off"
+                  placeholder="My New Website"
+                  required
+                />
+
+                <label for="domain-root-input" class="field-label">Domain name</label>
+                <div class="domain-input-row">
+                  <input
+                    id="domain-root-input"
+                    class="field-input"
+                    type="text"
+                    maxlength="60"
+                    autocomplete="off"
+                    placeholder="mybrand"
+                    required
+                  />
+                  <button id="domain-check-button" type="button" class="btn btn-secondary">Browse Prices</button>
+                </div>
+
+                <div id="domain-results" class="domain-results" aria-live="polite"></div>
+                <p id="selected-domain-line" class="project-hint">No domain selected.</p>
+              </div>
+
+              <div id="project-step-3" class="project-step-pane" hidden>
+                <h3 class="settings-subtitle">Optional Subdomain</h3>
+
+                <label class="switch-row" for="use-subdomain-checkbox">
+                  <input id="use-subdomain-checkbox" type="checkbox" />
+                  <span>Use a subdomain for this build</span>
+                </label>
+
+                <label for="subdomain-input" class="field-label">Subdomain</label>
+                <input
+                  id="subdomain-input"
+                  class="field-input"
+                  type="text"
+                  maxlength="40"
+                  autocomplete="off"
+                  placeholder="app"
+                  disabled
+                />
+
+                <label for="subdomain-purpose-input" class="field-label">What will this subdomain be used for?</label>
+                <textarea
+                  id="subdomain-purpose-input"
+                  class="field-input"
+                  rows="4"
+                  maxlength="240"
+                  placeholder="Required when subdomain is enabled."
+                  disabled
+                ></textarea>
+              </div>
+
+              <div id="project-step-4" class="project-step-pane" hidden>
+                <h3 class="settings-subtitle">Website Prompt</h3>
+                <label for="website-prompt-input" class="field-label">Describe what you want to build</label>
+                <textarea
+                  id="website-prompt-input"
+                  class="field-input"
+                  rows="8"
+                  maxlength="2000"
+                  placeholder="Example: Build a modern SaaS marketing website for a cybersecurity startup with clear CTA sections, pricing, FAQs, and a trusted enterprise look."
+                  required
+                ></textarea>
+                <p class="project-hint">Be specific about pages, tone, visual direction, and conversion goals.</p>
+              </div>
+
+              <div id="project-step-5" class="project-step-pane" hidden>
+                <h3 class="settings-subtitle">Checkout</h3>
+                <div class="checkout-grid">
+                  <div class="checkout-row"><span>Plan</span><span id="checkout-plan">--</span></div>
+                  <div class="checkout-row"><span>Project</span><span id="checkout-project-name">--</span></div>
+                  <div class="checkout-row"><span>Domain</span><span id="checkout-domain">--</span></div>
+                  <div class="checkout-row"><span>Domain Cost</span><span id="checkout-domain-cost">$0</span></div>
+                  <div class="checkout-row"><span>Subdomain</span><span id="checkout-subdomain">None</span></div>
+                  <div class="checkout-row"><span>Subdomain Use</span><span id="checkout-subdomain-use">N/A</span></div>
+                  <div class="checkout-row checkout-total"><span>Total</span><span id="checkout-total">$0</span></div>
+                </div>
+                <button id="checkout-button" type="button" class="btn btn-primary checkout-button">Proceed to Checkout</button>
+              </div>
+
+              <div class="project-actions">
+                <button id="project-back-button" type="button" class="btn btn-secondary">Back</button>
+                <button id="project-next-button" type="button" class="btn btn-primary">Next</button>
+              </div>
+            </article>
+          </section>
         </main>
       </div>
     </div>
 
-    <script src="app.js?v=20260222-1" defer></script>
+    <script src="app.js?v=20260222-2" defer></script>
   </body>
 </html>

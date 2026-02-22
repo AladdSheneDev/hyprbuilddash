@@ -422,6 +422,213 @@ body {
   color: #fca5a5;
 }
 
+.project-flow-view[hidden] {
+  display: none !important;
+}
+
+.project-flow-card {
+  display: grid;
+  gap: 1rem;
+  max-width: 62rem;
+}
+
+.project-flow-intro {
+  margin: -0.4rem 0 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.project-flow-steps {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.55rem;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.project-flow-steps li {
+  border: 1px solid var(--line);
+  border-radius: 0.65rem;
+  padding: 0.45rem 0.55rem;
+  font-size: 0.74rem;
+  text-align: center;
+  color: var(--muted);
+  background: rgba(248, 250, 252, 0.02);
+}
+
+.project-flow-steps li.is-active {
+  color: var(--text);
+  border-color: rgba(34, 211, 238, 0.5);
+  background: rgba(34, 211, 238, 0.12);
+}
+
+.project-flow-error {
+  margin: 0;
+  min-height: 1.1rem;
+  color: #fca5a5;
+  font-size: 0.82rem;
+}
+
+.project-step-pane {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.plan-grid {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.plan-card {
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  background: rgba(248, 250, 252, 0.02);
+  color: var(--text);
+  text-align: left;
+  padding: 0.85rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.plan-card:hover,
+.plan-card:focus-visible {
+  border-color: rgba(34, 211, 238, 0.45);
+  background: rgba(34, 211, 238, 0.1);
+}
+
+.plan-card.is-selected {
+  border-color: rgba(34, 211, 238, 0.6);
+  background: rgba(34, 211, 238, 0.14);
+}
+
+.plan-name {
+  margin: 0;
+  font-weight: 600;
+}
+
+.plan-price {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.plan-copy {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.domain-input-row {
+  display: grid;
+  gap: 0.55rem;
+  grid-template-columns: 1fr auto;
+}
+
+.domain-results {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.domain-row {
+  border: 1px solid var(--line);
+  border-radius: 0.65rem;
+  background: rgba(248, 250, 252, 0.015);
+  padding: 0.58rem 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.domain-row .meta {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.domain-row .name {
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.domain-row .cost {
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.domain-row.is-unavailable {
+  opacity: 0.65;
+}
+
+.domain-row.is-selected {
+  border-color: rgba(34, 211, 238, 0.6);
+  background: rgba(34, 211, 238, 0.12);
+}
+
+.project-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.switch-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text);
+  font-size: 0.84rem;
+}
+
+.switch-row input {
+  width: 1rem;
+  height: 1rem;
+}
+
+.checkout-grid {
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  background: rgba(248, 250, 252, 0.02);
+  padding: 0.8rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.checkout-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  font-size: 0.84rem;
+}
+
+.checkout-row span:last-child {
+  color: var(--text);
+  text-align: right;
+  max-width: 62%;
+  word-break: break-word;
+}
+
+.checkout-total {
+  border-top: 1px solid var(--line);
+  padding-top: 0.55rem;
+  margin-top: 0.1rem;
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.checkout-button {
+  justify-self: start;
+}
+
+.project-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+}
+
 .stat-card .label {
   margin: 0;
   color: var(--muted);
@@ -661,6 +868,18 @@ th {
   }
 
   .settings-fields-two {
+    grid-template-columns: 1fr;
+  }
+
+  .plan-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .project-flow-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .domain-input-row {
     grid-template-columns: 1fr;
   }
 
