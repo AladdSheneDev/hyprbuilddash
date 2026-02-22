@@ -26,13 +26,13 @@
         </a>
 
         <nav class="nav-list" aria-label="Primary">
-          <a href="#" class="nav-item is-active" aria-current="page">Overview</a>
+          <a href="#overview" class="nav-item is-active" data-route="overview" aria-current="page">Overview</a>
           <a href="#" class="nav-item">Projects</a>
           <a href="#" class="nav-item">Templates</a>
           <a href="#" class="nav-item">Deployments</a>
           <a href="#" class="nav-item">Analytics</a>
           <a href="#" class="nav-item">Billing</a>
-          <a href="#" class="nav-item">Settings</a>
+          <a href="#settings" class="nav-item" data-route="settings">Settings</a>
         </nav>
       </aside>
 
@@ -54,8 +54,8 @@
               <span></span>
             </button>
             <div>
-              <p class="eyebrow">Dashboard</p>
-              <h1>Overview</h1>
+              <p id="page-kicker" class="eyebrow">Dashboard</p>
+              <h1 id="page-title">Overview</h1>
             </div>
           </div>
 
@@ -66,10 +66,9 @@
               id="profile-button"
               type="button"
               class="profile"
-              aria-label="Open profile options"
-              aria-haspopup="dialog"
+              aria-label="Open settings"
               aria-expanded="false"
-              aria-controls="profile-panel"
+              aria-controls="view-settings"
             >
               <span class="profile-dot" aria-hidden="true"></span>
               <span id="profile-name">Loading...</span>
@@ -77,136 +76,201 @@
           </div>
         </header>
 
-        <section
-          id="profile-panel"
-          class="profile-panel"
-          role="dialog"
-          aria-modal="false"
-          aria-labelledby="profile-panel-title"
-          hidden
-        >
-          <div class="profile-panel-head">
-            <h2 id="profile-panel-title">Profile</h2>
-            <button id="profile-close-button" type="button" class="icon-close" aria-label="Close profile panel">
-              ×
-            </button>
-          </div>
-          <form id="profile-form" class="profile-form" novalidate>
-            <label for="profile-first-name" class="field-label">First name</label>
-            <input
-              id="profile-first-name"
-              class="field-input"
-              type="text"
-              name="firstName"
-              autocomplete="given-name"
-              maxlength="80"
-            />
-
-            <label for="profile-last-name" class="field-label">Last name</label>
-            <input
-              id="profile-last-name"
-              class="field-input"
-              type="text"
-              name="lastName"
-              autocomplete="family-name"
-              maxlength="80"
-            />
-
-            <label for="profile-email" class="field-label">Email</label>
-            <input id="profile-email" class="field-input is-disabled" type="email" name="email" disabled />
-
-            <div class="profile-actions">
-              <button type="submit" class="btn btn-primary" aria-label="Save profile">Save</button>
-              <button
-                id="profile-signout-button"
-                type="button"
-                class="btn btn-secondary"
-                aria-label="Sign out of dashboard"
-              >
-                Sign Out
-              </button>
-            </div>
-          </form>
-        </section>
-
         <main id="main-content" class="content" tabindex="-1">
           <section id="api-status" class="status-banner" role="status" aria-live="polite" hidden></section>
 
-          <section class="stats" aria-label="Performance summary">
-            <article class="card stat-card">
-              <p class="label">Active projects</p>
-              <p class="value" data-kpi="projects" id="kpi-projects">--</p>
-              <p class="delta neutral" id="kpi-projects-delta"></p>
-            </article>
+          <section id="view-overview">
+            <section class="stats" aria-label="Performance summary">
+              <article class="card stat-card">
+                <p class="label">Active projects</p>
+                <p class="value" data-kpi="projects" id="kpi-projects">--</p>
+                <p class="delta neutral" id="kpi-projects-delta"></p>
+              </article>
 
-            <article class="card stat-card">
-              <p class="label">Build success rate</p>
-              <p class="value" data-kpi="success" id="kpi-success">--</p>
-              <p class="delta neutral" id="kpi-success-delta"></p>
-            </article>
+              <article class="card stat-card">
+                <p class="label">Build success rate</p>
+                <p class="value" data-kpi="success" id="kpi-success">--</p>
+                <p class="delta neutral" id="kpi-success-delta"></p>
+              </article>
 
-            <article class="card stat-card">
-              <p class="label">Avg deploy time</p>
-              <p class="value" data-kpi="deploy" id="kpi-deploy">--</p>
-              <p class="delta neutral" id="kpi-deploy-delta"></p>
-            </article>
+              <article class="card stat-card">
+                <p class="label">Avg deploy time</p>
+                <p class="value" data-kpi="deploy" id="kpi-deploy">--</p>
+                <p class="delta neutral" id="kpi-deploy-delta"></p>
+              </article>
 
-            <article class="card stat-card">
-              <p class="label">Leads captured</p>
-              <p class="value" data-kpi="leads" id="kpi-leads">--</p>
-              <p class="delta neutral" id="kpi-leads-delta"></p>
-            </article>
+              <article class="card stat-card">
+                <p class="label">Leads captured</p>
+                <p class="value" data-kpi="leads" id="kpi-leads">--</p>
+                <p class="delta neutral" id="kpi-leads-delta"></p>
+              </article>
+            </section>
+
+            <section class="grid-two" aria-label="Projects and activity">
+              <article class="card projects-card">
+                <div class="card-head">
+                  <h2>Live API Records</h2>
+                  <div class="filters" role="group" aria-label="Project filter">
+                    <button class="pill is-active" type="button" data-filter="all">All</button>
+                    <button class="pill" type="button" data-filter="live">Live</button>
+                    <button class="pill" type="button" data-filter="draft">Draft</button>
+                  </div>
+                </div>
+
+                <div class="table-wrap">
+                  <table>
+                    <caption class="sr-only">Project list</caption>
+                    <thead>
+                      <tr>
+                        <th scope="col">Name</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Role</th>
+                        <th scope="col">Email</th>
+                      </tr>
+                    </thead>
+                    <tbody id="project-table-body">
+                      <tr data-status="draft">
+                        <td colspan="4">Loading records from API...</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </article>
+
+              <article class="card activity-card">
+                <div class="card-head">
+                  <h2>Activity Feed</h2>
+                  <button
+                    id="clear-activity-button"
+                    type="button"
+                    class="btn btn-secondary btn-inline"
+                    aria-label="Clear activity feed"
+                  >
+                    Clear
+                  </button>
+                </div>
+                <ul id="activity-list" class="activity-list">
+                  <li>
+                    <p>Waiting for API activity...</p>
+                    <span>Now</span>
+                  </li>
+                </ul>
+              </article>
+            </section>
           </section>
 
-          <section class="grid-two" aria-label="Projects and activity">
-            <article class="card projects-card">
+          <section id="view-settings" class="settings-view" aria-labelledby="settings-title" hidden>
+            <article class="card settings-card">
               <div class="card-head">
-                <h2>Live API Records</h2>
-                <div class="filters" role="group" aria-label="Project filter">
-                  <button class="pill is-active" type="button" data-filter="all">All</button>
-                  <button class="pill" type="button" data-filter="live">Live</button>
-                  <button class="pill" type="button" data-filter="draft">Draft</button>
-                </div>
+                <h2 id="settings-title">Profile Settings</h2>
+              </div>
+              <p class="settings-intro">Manage your profile, security, and account recovery details.</p>
+
+              <div class="settings-avatar-wrap">
+                <img id="settings-avatar-preview" class="settings-avatar" src="assets/faviconlogo.png" alt="Profile preview" />
               </div>
 
-              <div class="table-wrap">
-                <table>
-                  <caption class="sr-only">Project list</caption>
-                  <thead>
-                    <tr>
-                      <th scope="col">Name</th>
-                      <th scope="col">Status</th>
-                      <th scope="col">Role</th>
-                      <th scope="col">Email</th>
-                    </tr>
-                  </thead>
-                  <tbody id="project-table-body">
-                    <tr data-status="draft">
-                      <td colspan="4">Loading records from API...</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </article>
+              <div class="settings-forms-grid">
+                <form id="settings-name-form" class="settings-form" novalidate>
+                  <h3 class="settings-subtitle">Name</h3>
+                  <div class="settings-fields-two">
+                    <div>
+                      <label for="settings-first-name" class="field-label">First name</label>
+                      <input
+                        id="settings-first-name"
+                        class="field-input"
+                        type="text"
+                        name="firstName"
+                        autocomplete="given-name"
+                        maxlength="80"
+                      />
+                    </div>
+                    <div>
+                      <label for="settings-last-name" class="field-label">Last name</label>
+                      <input
+                        id="settings-last-name"
+                        class="field-input"
+                        type="text"
+                        name="lastName"
+                        autocomplete="family-name"
+                        maxlength="80"
+                      />
+                    </div>
+                  </div>
+                  <button type="submit" class="btn btn-primary" aria-label="Save profile name">Save Name</button>
+                </form>
 
-            <article class="card activity-card">
-              <div class="card-head">
-                <h2>Activity Feed</h2>
+                <form id="settings-photo-form" class="settings-form" novalidate>
+                  <h3 class="settings-subtitle">Profile Picture</h3>
+                  <label for="settings-photo-file" class="field-label">Upload new photo</label>
+                  <input id="settings-photo-file" class="field-input" type="file" accept="image/*" />
+                  <button type="submit" class="btn btn-primary" aria-label="Update profile picture">Update Photo</button>
+                </form>
+
+                <form id="settings-email-form" class="settings-form" novalidate>
+                  <h3 class="settings-subtitle">Backup Email</h3>
+                  <label for="settings-primary-email" class="field-label">Primary email</label>
+                  <input id="settings-primary-email" class="field-input is-disabled" type="email" disabled />
+                  <label for="settings-backup-email" class="field-label">Backup email</label>
+                  <input
+                    id="settings-backup-email"
+                    class="field-input"
+                    type="email"
+                    name="backupEmail"
+                    autocomplete="email"
+                    placeholder="name@example.com"
+                    required
+                  />
+                  <button type="submit" class="btn btn-primary" aria-label="Add backup email">Add Backup Email</button>
+                </form>
+
+                <form id="settings-password-form" class="settings-form" novalidate>
+                  <h3 class="settings-subtitle">Password</h3>
+                  <label for="settings-current-password" class="field-label">Current password</label>
+                  <input
+                    id="settings-current-password"
+                    class="field-input"
+                    type="password"
+                    name="currentPassword"
+                    autocomplete="current-password"
+                    required
+                  />
+                  <label for="settings-new-password" class="field-label">New password</label>
+                  <input
+                    id="settings-new-password"
+                    class="field-input"
+                    type="password"
+                    name="newPassword"
+                    autocomplete="new-password"
+                    minlength="8"
+                    required
+                  />
+                  <label for="settings-confirm-password" class="field-label">Confirm new password</label>
+                  <input
+                    id="settings-confirm-password"
+                    class="field-input"
+                    type="password"
+                    name="confirmPassword"
+                    autocomplete="new-password"
+                    minlength="8"
+                    required
+                  />
+                  <button type="submit" class="btn btn-primary" aria-label="Change password">Change Password</button>
+                </form>
+              </div>
+
+              <div class="settings-signout-row">
                 <button
-                  id="clear-activity-button"
+                  id="settings-signout-button"
                   type="button"
-                  class="btn btn-secondary btn-inline"
-                  aria-label="Clear activity feed"
+                  class="btn btn-secondary"
+                  aria-label="Sign out of dashboard"
                 >
-                  Clear
+                  Sign Out
                 </button>
               </div>
-              <ul id="activity-list" class="activity-list">
-                <li>
-                  <p>Waiting for API activity...</p>
-                  <span>Now</span>
-                </li>
-              </ul>
+
+              <p id="settings-feedback" class="settings-feedback" role="status" aria-live="polite"></p>
             </article>
           </section>
         </main>

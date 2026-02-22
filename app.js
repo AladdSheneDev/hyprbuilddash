@@ -6,20 +6,33 @@
   var sidebar = document.getElementById('sidebar');
   var menuToggle = document.getElementById('menu-toggle');
   var overlay = document.getElementById('overlay');
+  var routeLinks = Array.from(document.querySelectorAll('.nav-item[data-route]'));
   var filterButtons = Array.from(document.querySelectorAll('[data-filter]'));
   var tableBody = document.getElementById('project-table-body');
   var activityList = document.getElementById('activity-list');
   var profileName = document.getElementById('profile-name');
   var profileButton = document.getElementById('profile-button');
+  var pageTitle = document.getElementById('page-title');
+  var pageKicker = document.getElementById('page-kicker');
   var statusBanner = document.getElementById('api-status');
   var clearActivityButton = document.getElementById('clear-activity-button');
-  var profilePanel = document.getElementById('profile-panel');
-  var profileCloseButton = document.getElementById('profile-close-button');
-  var profileForm = document.getElementById('profile-form');
-  var profileFirstNameInput = document.getElementById('profile-first-name');
-  var profileLastNameInput = document.getElementById('profile-last-name');
-  var profileEmailInput = document.getElementById('profile-email');
-  var profileSignoutButton = document.getElementById('profile-signout-button');
+  var viewOverview = document.getElementById('view-overview');
+  var viewSettings = document.getElementById('view-settings');
+  var settingsNameForm = document.getElementById('settings-name-form');
+  var settingsPhotoForm = document.getElementById('settings-photo-form');
+  var settingsEmailForm = document.getElementById('settings-email-form');
+  var settingsPasswordForm = document.getElementById('settings-password-form');
+  var settingsSignoutButton = document.getElementById('settings-signout-button');
+  var settingsFirstNameInput = document.getElementById('settings-first-name');
+  var settingsLastNameInput = document.getElementById('settings-last-name');
+  var settingsPrimaryEmailInput = document.getElementById('settings-primary-email');
+  var settingsBackupEmailInput = document.getElementById('settings-backup-email');
+  var settingsPhotoFileInput = document.getElementById('settings-photo-file');
+  var settingsCurrentPasswordInput = document.getElementById('settings-current-password');
+  var settingsNewPasswordInput = document.getElementById('settings-new-password');
+  var settingsConfirmPasswordInput = document.getElementById('settings-confirm-password');
+  var settingsAvatarPreview = document.getElementById('settings-avatar-preview');
+  var settingsFeedback = document.getElementById('settings-feedback');
 
   var kpiProjects = document.getElementById('kpi-projects');
   var kpiSuccess = document.getElementById('kpi-success');
@@ -39,7 +52,7 @@
   var authToken = '';
   var currentUser = null;
   var currentActivityItems = [];
-  var profilePanelOpen = false;
+  var currentView = 'overview';
 
   var setStatus = function (message, kind) {
     if (!statusBanner) {
@@ -79,7 +92,32 @@
     if (!user) {
       return '';
     }
-    return user.primaryEmailAddress || user.email || '';
+
+    if (typeof user.primaryEmailAddress === 'string') {
+      return user.primaryEmailAddress;
+    }
+
+    if (user.primaryEmailAddress && typeof user.primaryEmailAddress.emailAddress === 'string') {
+      return user.primaryEmailAddress.emailAddress;
+    }
+
+    if (Array.isArray(user.emailAddresses) && user.emailAddresses.length > 0) {
+      var primaryId = user.primaryEmailAddressId || '';
+      var matched = user.emailAddresses.find(function (entry) {
+        return entry && (entry.id === primaryId || entry.emailAddress === primaryId);
+      });
+      if (matched && typeof matched.emailAddress === 'string') {
+        return matched.emailAddress;
+      }
+      var first = user.emailAddresses.find(function (entry) {
+        return entry && typeof entry.emailAddress === 'string';
+      });
+      if (first) {
+        return first.emailAddress;
+      }
+    }
+
+    return user.email || '';
   };
 
   var getUserDisplayName = function (user) {
@@ -118,6 +156,32 @@
       .replaceAll("'", '&#039;');
   };
 
+  var setSettingsFeedback = function (message, isError) {
+    if (!settingsFeedback) {
+      return;
+    }
+    settingsFeedback.textContent = message || '';
+    settingsFeedback.classList.remove('is-error', 'is-success');
+    if (!message) {
+      return;
+    }
+    settingsFeedback.classList.add(isError ? 'is-error' : 'is-success');
+  };
+
+  var pushActivity = function (message) {
+    if (!message) {
+      return;
+    }
+    setActivityItems(
+      [
+        {
+          message: message,
+          time: 'Now'
+        }
+      ].concat(currentActivityItems).slice(0, 8)
+    );
+  };
+
   var closeSidebar = function () {
     if (!sidebar || !menuToggle || !overlay) {
       return;
@@ -136,42 +200,66 @@
     overlay.hidden = false;
   };
 
+  var getRouteFromHash = function () {
+    var route = String(window.location.hash || '')
+      .replace(/^#/, '')
+      .trim()
+      .toLowerCase();
+    return route === 'settings' ? 'settings' : 'overview';
+  };
+
+  var setCurrentView = function (route, syncHash) {
+    var nextView = route === 'settings' ? 'settings' : 'overview';
+    currentView = nextView;
+
+    if (viewOverview) {
+      viewOverview.hidden = nextView !== 'overview';
+    }
+    if (viewSettings) {
+      viewSettings.hidden = nextView !== 'settings';
+    }
+
+    routeLinks.forEach(function (link) {
+      var linkRoute = link.getAttribute('data-route') || '';
+      var isActive = linkRoute === nextView;
+      link.classList.toggle('is-active', isActive);
+      if (isActive) {
+        link.setAttribute('aria-current', 'page');
+      } else {
+        link.removeAttribute('aria-current');
+      }
+    });
+
+    if (pageTitle) {
+      pageTitle.textContent = nextView === 'settings' ? 'Settings' : 'Overview';
+    }
+    if (pageKicker) {
+      pageKicker.textContent = 'Dashboard';
+    }
+    if (profileButton) {
+      profileButton.setAttribute('aria-expanded', nextView === 'settings' ? 'true' : 'false');
+    }
+
+    if (syncHash) {
+      var expectedHash = '#' + nextView;
+      if (window.location.hash !== expectedHash) {
+        window.history.replaceState(null, '', expectedHash);
+      }
+    }
+  };
+
   var syncProfileFields = function (user) {
-    if (profileFirstNameInput) {
-      profileFirstNameInput.value = user && user.firstName ? user.firstName : '';
+    if (settingsFirstNameInput) {
+      settingsFirstNameInput.value = user && user.firstName ? user.firstName : '';
     }
-    if (profileLastNameInput) {
-      profileLastNameInput.value = user && user.lastName ? user.lastName : '';
+    if (settingsLastNameInput) {
+      settingsLastNameInput.value = user && user.lastName ? user.lastName : '';
     }
-    if (profileEmailInput) {
-      profileEmailInput.value = getUserEmail(user);
+    if (settingsPrimaryEmailInput) {
+      settingsPrimaryEmailInput.value = getUserEmail(user);
     }
-  };
-
-  var closeProfilePanel = function () {
-    if (!profilePanel) {
-      return;
-    }
-    profilePanel.hidden = true;
-    profilePanelOpen = false;
-    if (profileButton) {
-      profileButton.setAttribute('aria-expanded', 'false');
-    }
-  };
-
-  var openProfilePanel = function () {
-    if (!profilePanel) {
-      return;
-    }
-    syncProfileFields(currentUser);
-    profilePanel.hidden = false;
-    profilePanelOpen = true;
-    if (profileButton) {
-      profileButton.setAttribute('aria-expanded', 'true');
-    }
-    if (profileFirstNameInput) {
-      profileFirstNameInput.focus();
-      profileFirstNameInput.select();
+    if (settingsAvatarPreview) {
+      settingsAvatarPreview.src = user && user.imageUrl ? user.imageUrl : 'assets/faviconlogo.png';
     }
   };
 
@@ -190,7 +278,6 @@
     document.addEventListener('keydown', function (event) {
       if (event.key === 'Escape') {
         closeSidebar();
-        closeProfilePanel();
       }
     });
 
@@ -436,7 +523,7 @@
     window.location.href = LOGIN_URL;
   };
 
-  var saveProfile = async function (event) {
+  var saveProfileName = async function (event) {
     event.preventDefault();
 
     if (!currentUser) {
@@ -444,10 +531,10 @@
       return;
     }
 
-    var nextFirstName = profileFirstNameInput ? profileFirstNameInput.value.trim() : '';
-    var nextLastName = profileLastNameInput ? profileLastNameInput.value.trim() : '';
+    var nextFirstName = settingsFirstNameInput ? settingsFirstNameInput.value.trim() : '';
+    var nextLastName = settingsLastNameInput ? settingsLastNameInput.value.trim() : '';
     if (!nextFirstName && !nextLastName) {
-      setStatus('Please enter at least a first name or last name.', 'error');
+      setSettingsFeedback('Please enter at least a first name or last name.', true);
       return;
     }
 
@@ -464,18 +551,161 @@
         profileName.textContent = getUserDisplayName(currentUser);
       }
       syncProfileFields(currentUser);
-      closeProfilePanel();
-
-      setActivityItems([
-        {
-          message: 'Profile updated.',
-          time: 'Now'
-        }
-      ].concat(currentActivityItems).slice(0, 6));
+      pushActivity('Profile name updated.');
+      setSettingsFeedback('Name updated successfully.', false);
       setStatus('', '');
     } catch (error) {
       var message = error && error.message ? error.message : 'Unable to update profile.';
-      setStatus('Profile update failed: ' + message, 'error');
+      setSettingsFeedback('Profile update failed: ' + message, true);
+    }
+  };
+
+  var updateProfilePhoto = async function (event) {
+    event.preventDefault();
+
+    var file = settingsPhotoFileInput && settingsPhotoFileInput.files ? settingsPhotoFileInput.files[0] : null;
+    if (!file) {
+      setSettingsFeedback('Please choose an image file first.', true);
+      return;
+    }
+
+    try {
+      if (clerkInstance && clerkInstance.user && typeof clerkInstance.user.setProfileImage === 'function') {
+        await clerkInstance.user.setProfileImage({ file: file });
+        if (!currentUser) {
+          currentUser = {};
+        }
+        if (clerkInstance.user.imageUrl) {
+          currentUser.imageUrl = clerkInstance.user.imageUrl;
+        }
+      } else {
+        var uploadFormData = new FormData();
+        uploadFormData.append('file', file);
+        var uploadResponse = await apiRequest('/me/profile-image', {
+          method: 'POST',
+          body: uploadFormData
+        });
+        var uploadUser = uploadResponse.user || uploadResponse.data || uploadResponse.result || uploadResponse;
+        if (uploadUser && uploadUser.imageUrl) {
+          if (!currentUser) {
+            currentUser = {};
+          }
+          currentUser.imageUrl = uploadUser.imageUrl;
+        }
+      }
+
+      syncProfileFields(currentUser);
+      if (settingsPhotoFileInput) {
+        settingsPhotoFileInput.value = '';
+      }
+      pushActivity('Profile picture updated.');
+      setSettingsFeedback('Profile picture updated successfully.', false);
+    } catch (error) {
+      var photoMessage = error && error.message ? error.message : 'Unable to update profile image.';
+      setSettingsFeedback('Profile image update failed: ' + photoMessage, true);
+    }
+  };
+
+  var addBackupEmail = async function (event) {
+    event.preventDefault();
+
+    var backupEmail = settingsBackupEmailInput ? settingsBackupEmailInput.value.trim().toLowerCase() : '';
+    if (!backupEmail) {
+      setSettingsFeedback('Enter a backup email address.', true);
+      return;
+    }
+
+    var primaryEmail = getUserEmail(currentUser).toLowerCase();
+    if (backupEmail === primaryEmail) {
+      setSettingsFeedback('Backup email must be different from your primary email.', true);
+      return;
+    }
+
+    try {
+      if (clerkInstance && clerkInstance.user && typeof clerkInstance.user.createEmailAddress === 'function') {
+        await clerkInstance.user.createEmailAddress({ emailAddress: backupEmail });
+      } else {
+        await apiRequest('/me/backup-email', {
+          method: 'POST',
+          body: { email: backupEmail }
+        });
+      }
+
+      if (settingsBackupEmailInput) {
+        settingsBackupEmailInput.value = '';
+      }
+      pushActivity('Backup email added: ' + backupEmail + '.');
+      setSettingsFeedback('Backup email added. Check your inbox to verify it.', false);
+    } catch (error) {
+      var emailMessage = error && error.message ? error.message : 'Unable to add backup email.';
+      setSettingsFeedback('Backup email update failed: ' + emailMessage, true);
+    }
+  };
+
+  var changePassword = async function (event) {
+    event.preventDefault();
+
+    var currentPassword = settingsCurrentPasswordInput ? settingsCurrentPasswordInput.value : '';
+    var newPassword = settingsNewPasswordInput ? settingsNewPasswordInput.value : '';
+    var confirmPassword = settingsConfirmPasswordInput ? settingsConfirmPasswordInput.value : '';
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setSettingsFeedback('Complete all password fields.', true);
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setSettingsFeedback('New password must be at least 8 characters.', true);
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setSettingsFeedback('New password and confirmation do not match.', true);
+      return;
+    }
+
+    try {
+      var changedInClerk = false;
+      if (clerkInstance && clerkInstance.user) {
+        if (typeof clerkInstance.user.updatePassword === 'function') {
+          await clerkInstance.user.updatePassword({
+            currentPassword: currentPassword,
+            newPassword: newPassword
+          });
+          changedInClerk = true;
+        } else if (typeof clerkInstance.user.update === 'function') {
+          await clerkInstance.user.update({
+            currentPassword: currentPassword,
+            password: newPassword
+          });
+          changedInClerk = true;
+        }
+      }
+
+      if (!changedInClerk) {
+        await apiRequest('/me/password', {
+          method: 'PATCH',
+          body: {
+            currentPassword: currentPassword,
+            newPassword: newPassword
+          }
+        });
+      }
+
+      if (settingsCurrentPasswordInput) {
+        settingsCurrentPasswordInput.value = '';
+      }
+      if (settingsNewPasswordInput) {
+        settingsNewPasswordInput.value = '';
+      }
+      if (settingsConfirmPasswordInput) {
+        settingsConfirmPasswordInput.value = '';
+      }
+      pushActivity('Password updated.');
+      setSettingsFeedback('Password changed successfully.', false);
+    } catch (error) {
+      var passwordMessage = error && error.message ? error.message : 'Unable to change password.';
+      setSettingsFeedback('Password change failed: ' + passwordMessage, true);
     }
   };
 
@@ -517,28 +747,55 @@
       });
     }
 
+    routeLinks.forEach(function (link) {
+      link.addEventListener('click', function (event) {
+        event.preventDefault();
+        var route = link.getAttribute('data-route') || 'overview';
+        setCurrentView(route, true);
+        closeSidebar();
+      });
+    });
+
+    window.addEventListener('hashchange', function () {
+      setCurrentView(getRouteFromHash(), false);
+    });
+
     if (profileButton) {
       profileButton.addEventListener('click', function () {
-        if (profilePanelOpen) {
-          closeProfilePanel();
-        } else {
-          openProfilePanel();
+        setCurrentView('settings', true);
+        if (settingsFirstNameInput) {
+          settingsFirstNameInput.focus();
         }
+        closeSidebar();
       });
     }
 
-    if (profileCloseButton) {
-      profileCloseButton.addEventListener('click', closeProfilePanel);
-    }
-
-    if (profileForm) {
-      profileForm.addEventListener('submit', function (event) {
-        void saveProfile(event);
+    if (settingsNameForm) {
+      settingsNameForm.addEventListener('submit', function (event) {
+        void saveProfileName(event);
       });
     }
 
-    if (profileSignoutButton) {
-      profileSignoutButton.addEventListener('click', signOut);
+    if (settingsPhotoForm) {
+      settingsPhotoForm.addEventListener('submit', function (event) {
+        void updateProfilePhoto(event);
+      });
+    }
+
+    if (settingsEmailForm) {
+      settingsEmailForm.addEventListener('submit', function (event) {
+        void addBackupEmail(event);
+      });
+    }
+
+    if (settingsPasswordForm) {
+      settingsPasswordForm.addEventListener('submit', function (event) {
+        void changePassword(event);
+      });
+    }
+
+    if (settingsSignoutButton) {
+      settingsSignoutButton.addEventListener('click', signOut);
     }
 
     if (clearActivityButton) {
@@ -546,20 +803,6 @@
         setActivityItems([]);
       });
     }
-
-    document.addEventListener('click', function (event) {
-      if (!profilePanelOpen) {
-        return;
-      }
-      var target = event.target;
-      if (profilePanel && profilePanel.contains(target)) {
-        return;
-      }
-      if (profileButton && profileButton.contains(target)) {
-        return;
-      }
-      closeProfilePanel();
-    });
   };
 
   var buildRowsFromUsers = function (users) {
@@ -613,6 +856,10 @@
 
   var boot = async function () {
     wireButtons();
+    if (!window.location.hash) {
+      window.history.replaceState(null, '', '#overview');
+    }
+    setCurrentView(getRouteFromHash(), false);
     setStatus('Initializing secure session...', '');
 
     try {
