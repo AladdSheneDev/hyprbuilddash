@@ -44,8 +44,9 @@
   var domainResults = document.getElementById('domain-results');
   var selectedDomainLine = document.getElementById('selected-domain-line');
   var useSubdomainCheckbox = document.getElementById('use-subdomain-checkbox');
-  var subdomainInput = document.getElementById('subdomain-input');
-  var subdomainPurposeInput = document.getElementById('subdomain-purpose-input');
+  var subdomainFields = document.getElementById('subdomain-fields');
+  var subdomainList = document.getElementById('subdomain-list');
+  var addSubdomainButton = document.getElementById('add-subdomain-button');
   var websitePromptInput = document.getElementById('website-prompt-input');
   var projectBackButton = document.getElementById('project-back-button');
   var projectNextButton = document.getElementById('project-next-button');
@@ -84,8 +85,7 @@
     domainRoot: '',
     selectedDomain: null,
     useSubdomain: false,
-    subdomain: '',
-    subdomainPurpose: '',
+    subdomains: [],
     prompt: ''
   };
 
@@ -129,7 +129,7 @@
     if (typeof value !== 'number' || Number.isNaN(value)) {
       return '$0';
     }
-    return '$' + value.toFixed(0);
+    return '$' + value.toFixed(value % 1 === 0 ? 0 : 2);
   };
 
   var cleanDomainRoot = function (value) {
@@ -400,6 +400,57 @@
     });
   };
 
+  var priceFromName = function (name) {
+    var tldIndex = String(name || '').lastIndexOf('.');
+    if (tldIndex === -1) {
+      return null;
+    }
+    var tld = name.slice(tldIndex);
+    return DOMAIN_PRICE_MAP[tld] || null;
+  };
+
+  var normalizeDomainResponse = function (payload, root) {
+    if (!payload) {
+      return [];
+    }
+
+    if (Array.isArray(payload)) {
+      return payload;
+    }
+
+    if (Array.isArray(payload.domains)) {
+      return payload.domains;
+    }
+
+    if (Array.isArray(payload.results)) {
+      return payload.results;
+    }
+
+    if (Array.isArray(payload.data)) {
+      return payload.data;
+    }
+
+    if (payload.response && typeof payload.response === 'object') {
+      return Object.keys(payload.response).map(function (name) {
+        return {
+          name: name,
+          available: String(payload.response[name] || '').toLowerCase() === 'available'
+        };
+      });
+    }
+
+    if (payload.availability && typeof payload.availability === 'object') {
+      return Object.keys(payload.availability).map(function (name) {
+        return {
+          name: name,
+          available: !!payload.availability[name]
+        };
+      });
+    }
+
+    return root ? buildDomainOptions(root) : [];
+  };
+
   var renderDomainOptions = function (options) {
     if (!domainResults) {
       return;
@@ -414,6 +465,7 @@
       .map(function (option) {
         var selected = projectFlowState.selectedDomain && projectFlowState.selectedDomain.name === option.name;
         var className = 'domain-row' + (option.available ? '' : ' is-unavailable') + (selected ? ' is-selected' : '');
+        var priceLabel = typeof option.price === 'number' ? formatCurrency(option.price) + '/yr' : 'TBD';
         return (
           '<div class="' +
           className +
@@ -421,8 +473,8 @@
           '<div class="meta"><span class="name">' +
           escapeHtml(option.name) +
           '</span><span class="cost">' +
-          formatCurrency(option.price) +
-          '/yr</span></div>' +
+          priceLabel +
+          '</span></div>' +
           (option.available
             ? '<button type="button" class="btn btn-secondary btn-inline" data-domain-select="' +
               escapeHtml(option.name) +
@@ -452,22 +504,123 @@
     });
   };
 
+  var syncSubdomainState = function () {
+    if (!subdomainList) {
+      return;
+    }
+    var rows = Array.from(subdomainList.querySelectorAll('[data-subdomain-row]'));
+    projectFlowState.subdomains = rows
+      .map(function (row) {
+        var nameInput = row.querySelector('[data-subdomain-name]');
+        var purposeInput = row.querySelector('[data-subdomain-purpose]');
+        return {
+          name: cleanDomainRoot(nameInput ? nameInput.value : ''),
+          purpose: purposeInput ? purposeInput.value.trim() : ''
+        };
+      })
+      .filter(function (entry) {
+        return entry.name || entry.purpose;
+      });
+  };
+
+  var createSubdomainRow = function (index, value) {
+    var row = document.createElement('div');
+    row.className = 'subdomain-row';
+    row.setAttribute('data-subdomain-row', 'true');
+
+    row.innerHTML =
+      '<div class="subdomain-row-header">' +
+      '<p class="subdomain-row-title">Subdomain ' +
+      (index + 1) +
+      '</p>' +
+      (index > 0
+        ? '<button type="button" class="btn btn-secondary btn-inline" data-subdomain-remove="true">Remove</button>'
+        : '') +
+      '</div>' +
+      '<div class="subdomain-inputs">' +
+      '<div><label class="field-label">Subdomain</label>' +
+      '<input class="field-input" type="text" maxlength="40" autocomplete="off" placeholder="app" data-subdomain-name="true" /></div>' +
+      '<div><label class="field-label">Purpose</label>' +
+      '<input class="field-input" type="text" maxlength="160" autocomplete="off" placeholder="Customer dashboard" data-subdomain-purpose="true" /></div>' +
+      '</div>';
+
+    var nameInput = row.querySelector('[data-subdomain-name]');
+    var purposeInput = row.querySelector('[data-subdomain-purpose]');
+    if (nameInput && value && value.name) {
+      nameInput.value = value.name;
+    }
+    if (purposeInput && value && value.purpose) {
+      purposeInput.value = value.purpose;
+    }
+
+    if (nameInput) {
+      nameInput.addEventListener('input', function () {
+        setProjectFlowError('');
+      });
+    }
+    if (purposeInput) {
+      purposeInput.addEventListener('input', function () {
+        setProjectFlowError('');
+      });
+    }
+
+    var removeButton = row.querySelector('[data-subdomain-remove]');
+    if (removeButton) {
+      removeButton.addEventListener('click', function () {
+        row.remove();
+        refreshSubdomainRowTitles();
+        syncSubdomainState();
+      });
+    }
+
+    return row;
+  };
+
+  var refreshSubdomainRowTitles = function () {
+    if (!subdomainList) {
+      return;
+    }
+    Array.from(subdomainList.querySelectorAll('[data-subdomain-row]')).forEach(function (row, index) {
+      var title = row.querySelector('.subdomain-row-title');
+      if (title) {
+        title.textContent = 'Subdomain ' + (index + 1);
+      }
+      var remove = row.querySelector('[data-subdomain-remove]');
+      if (remove) {
+        remove.style.display = index === 0 ? 'none' : '';
+      }
+    });
+  };
+
+  var renderSubdomainRows = function () {
+    if (!subdomainList) {
+      return;
+    }
+    subdomainList.innerHTML = '';
+    var rows = projectFlowState.subdomains.length > 0 ? projectFlowState.subdomains : [{ name: '', purpose: '' }];
+    rows.forEach(function (entry, index) {
+      subdomainList.appendChild(createSubdomainRow(index, entry));
+    });
+    refreshSubdomainRowTitles();
+  };
+
   var updateSubdomainFields = function () {
     var enabled = !!(useSubdomainCheckbox && useSubdomainCheckbox.checked);
     projectFlowState.useSubdomain = enabled;
 
-    if (subdomainInput) {
-      subdomainInput.disabled = !enabled;
-      if (!enabled) {
-        subdomainInput.value = '';
-      }
+    if (subdomainFields) {
+      subdomainFields.hidden = !enabled;
     }
-    if (subdomainPurposeInput) {
-      subdomainPurposeInput.disabled = !enabled;
-      if (!enabled) {
-        subdomainPurposeInput.value = '';
+
+    if (!enabled) {
+      projectFlowState.subdomains = [];
+      if (subdomainList) {
+        subdomainList.innerHTML = '';
       }
+      return;
     }
+
+    renderSubdomainRows();
   };
 
   var updateCheckoutSummary = function () {
@@ -475,6 +628,22 @@
     var planPrice = selectedPlan ? selectedPlan.price : 0;
     var domainPrice = projectFlowState.selectedDomain ? projectFlowState.selectedDomain.price : 0;
     var total = planPrice + domainPrice;
+    var domainName = projectFlowState.selectedDomain ? projectFlowState.selectedDomain.name : projectFlowState.domainRoot;
+    var subdomains = projectFlowState.useSubdomain ? projectFlowState.subdomains : [];
+    var subdomainNames = subdomains
+      .filter(function (item) {
+        return item.name;
+      })
+      .map(function (item) {
+        return item.name + (domainName ? '.' + domainName : '');
+      });
+    var subdomainUses = subdomains
+      .filter(function (item) {
+        return item.purpose;
+      })
+      .map(function (item) {
+        return item.purpose;
+      });
 
     if (checkoutPlan) {
       checkoutPlan.textContent = selectedPlan ? selectedPlan.label + ' ' + formatCurrency(selectedPlan.price) : '--';
@@ -489,13 +658,10 @@
       checkoutDomainCost.textContent = formatCurrency(domainPrice);
     }
     if (checkoutSubdomain) {
-      checkoutSubdomain.textContent =
-        projectFlowState.useSubdomain && projectFlowState.subdomain
-          ? projectFlowState.subdomain + '.' + (projectFlowState.selectedDomain ? projectFlowState.selectedDomain.name : '')
-          : 'None';
+      checkoutSubdomain.textContent = projectFlowState.useSubdomain ? subdomainNames.join(', ') || '--' : 'None';
     }
     if (checkoutSubdomainUse) {
-      checkoutSubdomainUse.textContent = projectFlowState.useSubdomain ? projectFlowState.subdomainPurpose || '--' : 'N/A';
+      checkoutSubdomainUse.textContent = projectFlowState.useSubdomain ? subdomainUses.join(' | ') || '--' : 'N/A';
     }
     if (checkoutTotal) {
       checkoutTotal.textContent = formatCurrency(total);
@@ -554,15 +720,24 @@
 
     if (step === 3) {
       updateSubdomainFields();
-      projectFlowState.subdomain = cleanDomainRoot(subdomainInput ? subdomainInput.value : '');
-      projectFlowState.subdomainPurpose = subdomainPurposeInput ? subdomainPurposeInput.value.trim() : '';
+      syncSubdomainState();
       if (projectFlowState.useSubdomain) {
-        if (!projectFlowState.subdomain) {
-          setProjectFlowError('Enter the subdomain you want to use.');
+        if (projectFlowState.subdomains.length === 0) {
+          setProjectFlowError('Add at least one subdomain.');
           return false;
         }
-        if (!projectFlowState.subdomainPurpose) {
-          setProjectFlowError('Tell us what the subdomain will be used for.');
+        var missingName = projectFlowState.subdomains.find(function (item) {
+          return !item.name;
+        });
+        if (missingName) {
+          setProjectFlowError('Each subdomain needs a name.');
+          return false;
+        }
+        var missingPurpose = projectFlowState.subdomains.find(function (item) {
+          return !item.purpose;
+        });
+        if (missingPurpose) {
+          setProjectFlowError('Each subdomain needs a purpose.');
           return false;
         }
       }
@@ -588,8 +763,7 @@
       domainRoot: '',
       selectedDomain: null,
       useSubdomain: false,
-      subdomain: '',
-      subdomainPurpose: '',
+      subdomains: [],
       prompt: ''
     };
     setPlanSelection('');
@@ -607,11 +781,11 @@
     if (useSubdomainCheckbox) {
       useSubdomainCheckbox.checked = false;
     }
-    if (subdomainInput) {
-      subdomainInput.value = '';
+    if (subdomainFields) {
+      subdomainFields.hidden = true;
     }
-    if (subdomainPurposeInput) {
-      subdomainPurposeInput.value = '';
+    if (subdomainList) {
+      subdomainList.innerHTML = '';
     }
     if (websitePromptInput) {
       websitePromptInput.value = '';
@@ -1173,7 +1347,7 @@
     });
 
     if (domainCheckButton) {
-      domainCheckButton.addEventListener('click', function () {
+      domainCheckButton.addEventListener('click', async function () {
         var domainRoot = cleanDomainRoot(domainRootInput ? domainRootInput.value : '');
         projectFlowState.domainRoot = domainRoot;
         if (!domainRoot) {
@@ -1185,13 +1359,65 @@
           setProjectFlowError('Enter a valid domain name to browse pricing.');
           return;
         }
-        var options = buildDomainOptions(domainRoot);
-        if (projectFlowState.selectedDomain && !projectFlowState.selectedDomain.name.startsWith(domainRoot + '.')) {
+        try {
+          if (domainCheckButton) {
+            domainCheckButton.disabled = true;
+            domainCheckButton.textContent = 'Searching...';
+          }
+          var response = await apiRequest('/domains/search?name=' + encodeURIComponent(domainRoot));
+          var rawList = normalizeDomainResponse(response, domainRoot);
+          var options = rawList.map(function (entry) {
+            if (typeof entry === 'string') {
+              return {
+                name: entry,
+                available: true,
+                price: priceFromName(entry) || 0
+              };
+            }
+            var name = entry.name || entry.domain || entry.fqdn || '';
+            var available = entry.available;
+            if (available === undefined || available === null) {
+              if (entry.status) {
+                available = String(entry.status).toLowerCase() === 'available';
+              }
+            }
+            if (available === undefined || available === null) {
+              available = true;
+            }
+            var price = parseOptionalNumber(entry.price || entry.cost || entry.registrationPrice || entry.yearlyPrice);
+            if (price === null) {
+              price = priceFromName(name);
+            }
+            return {
+              name: name,
+              available: !!available,
+              price: typeof price === 'number' ? price : 0
+            };
+          });
+          if (options.length === 0) {
+            setProjectFlowError('No domain results returned. Try another name.');
+          } else {
+            setProjectFlowError('');
+          }
+          if (projectFlowState.selectedDomain && !projectFlowState.selectedDomain.name.startsWith(domainRoot + '.')) {
+            projectFlowState.selectedDomain = null;
+          }
+          renderDomainOptions(options);
+          setDomainSelectedLine();
+        } catch (error) {
+          if (domainResults) {
+            domainResults.innerHTML = '';
+          }
           projectFlowState.selectedDomain = null;
+          setDomainSelectedLine();
+          var message = error && error.message ? error.message : 'Domain lookup failed.';
+          setProjectFlowError(message);
+        } finally {
+          if (domainCheckButton) {
+            domainCheckButton.disabled = false;
+            domainCheckButton.textContent = 'Browse Prices';
+          }
         }
-        renderDomainOptions(options);
-        setDomainSelectedLine();
-        setProjectFlowError('');
       });
     }
 
@@ -1221,6 +1447,17 @@
       useSubdomainCheckbox.addEventListener('change', function () {
         updateSubdomainFields();
         setProjectFlowError('');
+      });
+    }
+
+    if (addSubdomainButton) {
+      addSubdomainButton.addEventListener('click', function () {
+        if (!subdomainList) {
+          return;
+        }
+        var index = subdomainList.querySelectorAll('[data-subdomain-row]').length;
+        subdomainList.appendChild(createSubdomainRow(index, { name: '', purpose: '' }));
+        refreshSubdomainRowTitles();
       });
     }
 

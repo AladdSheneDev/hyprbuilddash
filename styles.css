@@ -586,6 +586,51 @@ body {
   height: 1rem;
 }
 
+.subdomain-fields {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.subdomain-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.subdomain-row {
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  background: rgba(248, 250, 252, 0.02);
+  padding: 0.75rem;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.subdomain-row-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.subdomain-row-title {
+  margin: 0;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+.subdomain-inputs {
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.subdomain-inputs > div {
+  display: grid;
+  gap: 0.4rem;
+}
+
 .checkout-grid {
   border: 1px solid var(--line);
   border-radius: 0.85rem;
@@ -880,6 +925,10 @@ th {
   }
 
   .domain-input-row {
+    grid-template-columns: 1fr;
+  }
+
+  .subdomain-inputs {
     grid-template-columns: 1fr;
   }
 

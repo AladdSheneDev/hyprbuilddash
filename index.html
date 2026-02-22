@@ -346,33 +346,20 @@
               </div>
 
               <div id="project-step-3" class="project-step-pane" hidden>
-                <h3 class="settings-subtitle">Optional Subdomain</h3>
+                <h3 class="settings-subtitle">Optional Subdomains</h3>
 
                 <label class="switch-row" for="use-subdomain-checkbox">
                   <input id="use-subdomain-checkbox" type="checkbox" />
-                  <span>Use a subdomain for this build</span>
+                  <span>Use subdomains for this build</span>
                 </label>
 
-                <label for="subdomain-input" class="field-label">Subdomain</label>
-                <input
-                  id="subdomain-input"
-                  class="field-input"
-                  type="text"
-                  maxlength="40"
-                  autocomplete="off"
-                  placeholder="app"
-                  disabled
-                />
-
-                <label for="subdomain-purpose-input" class="field-label">What will this subdomain be used for?</label>
-                <textarea
-                  id="subdomain-purpose-input"
-                  class="field-input"
-                  rows="4"
-                  maxlength="240"
-                  placeholder="Required when subdomain is enabled."
-                  disabled
-                ></textarea>
+                <div id="subdomain-fields" class="subdomain-fields" hidden>
+                  <div id="subdomain-list" class="subdomain-list" aria-live="polite"></div>
+                  <button id="add-subdomain-button" type="button" class="btn btn-secondary btn-inline">
+                    Add another subdomain
+                  </button>
+                  <p class="project-hint">Each subdomain needs a purpose.</p>
+                </div>
               </div>
 
               <div id="project-step-4" class="project-step-pane" hidden>
