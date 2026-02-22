@@ -63,6 +63,18 @@
     return value.toLocaleString();
   };
 
+  var parseOptionalNumber = function (value) {
+    if (value === null || value === undefined || value === '') {
+      return null;
+    }
+    var parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+
+  var hasOwn = function (object, key) {
+    return !!object && Object.prototype.hasOwnProperty.call(object, key);
+  };
+
   var getUserEmail = function (user) {
     if (!user) {
       return '';
@@ -391,24 +403,26 @@
       profileName.textContent = getUserDisplayName(me);
     }
 
-    var projectsCount = users.length > 0 ? users.length : Number(metadata.activeProjects || 0);
-    if (!projectsCount) {
-      projectsCount = 1;
+    var projectsCount = null;
+    if (usedAdminSource && Array.isArray(users)) {
+      projectsCount = users.length;
+    } else if (hasOwn(metadata, 'activeProjects')) {
+      projectsCount = parseOptionalNumber(metadata.activeProjects);
     }
 
-    var successRate = Number(metadata.successRate || 97);
-    var deploySeconds = Number(metadata.avgDeploySeconds || 43);
-    var leadsCount = Number(metadata.leadsCaptured || 0);
+    var successRate = hasOwn(metadata, 'successRate') ? parseOptionalNumber(metadata.successRate) : null;
+    var deploySeconds = hasOwn(metadata, 'avgDeploySeconds') ? parseOptionalNumber(metadata.avgDeploySeconds) : null;
+    var leadsCount = hasOwn(metadata, 'leadsCaptured') ? parseOptionalNumber(metadata.leadsCaptured) : null;
 
-    kpiProjects.textContent = formatNumber(projectsCount);
-    kpiSuccess.textContent = formatNumber(successRate) + '%';
-    kpiDeploy.textContent = formatNumber(deploySeconds) + 's';
-    kpiLeads.textContent = formatNumber(leadsCount);
+    kpiProjects.textContent = projectsCount === null ? '--' : formatNumber(projectsCount);
+    kpiSuccess.textContent = successRate === null ? '--' : formatNumber(successRate) + '%';
+    kpiDeploy.textContent = deploySeconds === null ? '--' : formatNumber(deploySeconds) + 's';
+    kpiLeads.textContent = leadsCount === null ? '--' : formatNumber(leadsCount);
 
-    kpiProjectsDelta.textContent = usedAdminSource ? 'Synced from /api/admin/users' : 'Synced from /api/me';
-    kpiSuccessDelta.textContent = 'Source: /api/me publicMetadata';
-    kpiDeployDelta.textContent = 'Source: /api/me publicMetadata';
-    kpiLeadsDelta.textContent = 'Source: /api/me publicMetadata';
+    kpiProjectsDelta.textContent = '';
+    kpiSuccessDelta.textContent = '';
+    kpiDeployDelta.textContent = '';
+    kpiLeadsDelta.textContent = '';
     setStatus('', health && health.ok ? 'success' : '');
   };
 
@@ -649,11 +663,6 @@
         }
       }
 
-      if (users.length === 0) {
-        users = [meUser];
-        usedAdminSource = false;
-      }
-
       setTableRows(buildRowsFromUsers(users));
       setActivityItems(buildActivityFromUsers(users, meUser, usedAdminSource));
 
@@ -668,6 +677,14 @@
     } catch (error) {
       var message = error && error.message ? error.message : 'Unknown dashboard error.';
       setStatus('API connection failed: ' + message, 'error');
+      kpiProjects.textContent = '--';
+      kpiSuccess.textContent = '--';
+      kpiDeploy.textContent = '--';
+      kpiLeads.textContent = '--';
+      kpiProjectsDelta.textContent = '';
+      kpiSuccessDelta.textContent = '';
+      kpiDeployDelta.textContent = '';
+      kpiLeadsDelta.textContent = '';
       setTableRows([]);
       setActivityItems([
         {

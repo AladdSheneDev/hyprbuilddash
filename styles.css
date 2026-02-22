@@ -405,6 +405,10 @@ body {
   font-size: 0.8rem;
 }
 
+.delta:empty {
+  display: none;
+}
+
 .positive {
   color: #34d399;
 }
