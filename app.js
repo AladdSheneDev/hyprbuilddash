@@ -212,11 +212,16 @@
     var nextView = route === 'settings' ? 'settings' : 'overview';
     currentView = nextView;
 
+    var showOverview = nextView === 'overview';
+    var showSettings = nextView === 'settings';
+
     if (viewOverview) {
-      viewOverview.hidden = nextView !== 'overview';
+      viewOverview.hidden = !showOverview;
+      viewOverview.style.display = showOverview ? '' : 'none';
     }
     if (viewSettings) {
-      viewSettings.hidden = nextView !== 'settings';
+      viewSettings.hidden = !showSettings;
+      viewSettings.style.display = showSettings ? 'grid' : 'none';
     }
 
     routeLinks.forEach(function (link) {
