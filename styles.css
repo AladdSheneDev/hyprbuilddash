@@ -283,9 +283,9 @@ body {
 }
 
 .content {
-  padding: 1.6rem;
+  padding: 1.8rem;
   display: grid;
-  gap: 1.4rem;
+  gap: 1.6rem;
 }
 
 .status-banner {
@@ -315,7 +315,7 @@ body {
 
 .stats {
   display: grid;
-  gap: 1.2rem;
+  gap: 1.6rem;
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
@@ -707,7 +707,7 @@ body {
 
 .grid-two {
   display: grid;
-  gap: 1.25rem;
+  gap: 1.6rem;
   grid-template-columns: 2fr 1fr;
 }
 
