@@ -333,6 +333,11 @@ body {
   display: none !important;
 }
 
+#view-overview:not([hidden]) {
+  display: grid;
+  gap: 1.6rem;
+}
+
 .settings-view:not([hidden]) {
   display: grid;
 }
