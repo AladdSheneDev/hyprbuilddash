@@ -52,6 +52,7 @@
   var subdomainFields = document.getElementById('subdomain-fields');
   var subdomainList = document.getElementById('subdomain-list');
   var addSubdomainButton = document.getElementById('add-subdomain-button');
+  var aiProjectIdInput = document.getElementById('ai-project-id-input');
   var websitePromptInput = document.getElementById('website-prompt-input');
   var generationImagesList = document.getElementById('generation-images-list');
   var addGenerationImageButton = document.getElementById('add-generation-image-button');
@@ -75,6 +76,7 @@
   var aiUsageByAgent = document.getElementById('ai-usage-by-agent');
   var checkoutPlan = document.getElementById('checkout-plan');
   var checkoutProjectName = document.getElementById('checkout-project-name');
+  var checkoutProjectId = document.getElementById('checkout-project-id');
   var checkoutDomain = document.getElementById('checkout-domain');
   var checkoutDomainCost = document.getElementById('checkout-domain-cost');
   var checkoutSubdomain = document.getElementById('checkout-subdomain');
@@ -165,6 +167,41 @@
       .replace(/[^a-z0-9-]/g, '')
       .replace(/-+/g, '-')
       .replace(/^-|-$/g, '');
+  };
+
+  var slugifyProjectId = function (value) {
+    return String(value || '')
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+  };
+
+  var ensureProjectId = function () {
+    var manualId = aiProjectIdInput ? slugifyProjectId(aiProjectIdInput.value) : '';
+    if (manualId) {
+      projectFlowState.aiProjectId = manualId;
+      if (aiProjectIdInput) {
+        aiProjectIdInput.value = manualId;
+      }
+      return manualId;
+    }
+
+    if (projectFlowState.aiProjectId) {
+      return projectFlowState.aiProjectId;
+    }
+
+    var domainSeed = projectFlowState.selectedDomain && projectFlowState.selectedDomain.name ? projectFlowState.selectedDomain.name : '';
+    var nameSeed = projectFlowState.projectName || (projectNameInput ? projectNameInput.value.trim() : '');
+    var baseSeed = slugifyProjectId(domainSeed || nameSeed || 'hyprbuild-project');
+    var derivedId = baseSeed || 'hyprbuild-project';
+
+    projectFlowState.aiProjectId = derivedId;
+    if (aiProjectIdInput && !aiProjectIdInput.value.trim()) {
+      aiProjectIdInput.value = derivedId;
+    }
+    return derivedId;
   };
 
   var parseOptionalNumber = function (value) {
@@ -629,6 +666,11 @@
       setAiGenerationFeedback('Add a website request before generating.', 'error');
       return;
     }
+    projectFlowState.aiProjectId = ensureProjectId();
+    if (!projectFlowState.aiProjectId) {
+      setAiGenerationFeedback('Project ID is required for AI generation.', 'error');
+      return;
+    }
 
     var images = [];
     try {
@@ -647,12 +689,10 @@
 
     /** @type {AiGenerationRequest} */
     var payload = {
+      projectId: projectFlowState.aiProjectId,
       userRequest: projectFlowState.prompt,
       images: images
     };
-    if (projectFlowState.aiProjectId) {
-      payload.projectId = projectFlowState.aiProjectId;
-    }
 
     if (checkoutButton) {
       checkoutButton.disabled = true;
@@ -694,6 +734,16 @@
       }
       if (response.status === 429) {
         setAiGenerationFeedback('Too many generation requests. Please retry in a moment.', 'error');
+        return;
+      }
+      if (response.status === 403) {
+        setAiGenerationFeedback(
+          parseValidationMessage(
+            responsePayload,
+            'Generation blocked. In test mode, projectId must match the backend test project name.'
+          ),
+          'error'
+        );
         return;
       }
       if (response.status === 500 || response.status === 502) {
@@ -1125,6 +1175,7 @@
   };
 
   var updateCheckoutSummary = function () {
+    var projectId = ensureProjectId();
     var selectedPlan = projectFlowState.planKey ? PLAN_OPTIONS[projectFlowState.planKey] : null;
     var planPrice = selectedPlan ? selectedPlan.price : 0;
     var domainPrice = projectFlowState.selectedDomain ? projectFlowState.selectedDomain.price : 0;
@@ -1151,6 +1202,9 @@
     }
     if (checkoutProjectName) {
       checkoutProjectName.textContent = projectFlowState.projectName || '--';
+    }
+    if (checkoutProjectId) {
+      checkoutProjectId.textContent = projectId || '--';
     }
     if (checkoutDomain) {
       checkoutDomain.textContent = projectFlowState.selectedDomain ? projectFlowState.selectedDomain.name : '--';
@@ -1186,6 +1240,10 @@
     if (projectNextButton) {
       projectNextButton.hidden = projectFlowStep === 5;
       projectNextButton.textContent = 'Next';
+    }
+
+    if (projectFlowStep >= 4) {
+      ensureProjectId();
     }
 
     if (projectFlowStep === 5) {
@@ -1245,6 +1303,11 @@
     }
 
     if (step === 4) {
+      projectFlowState.aiProjectId = ensureProjectId();
+      if (!projectFlowState.aiProjectId) {
+        setProjectFlowError('Project ID is required for AI generation.');
+        return false;
+      }
       projectFlowState.prompt = websitePromptInput ? websitePromptInput.value.trim() : '';
       if (projectFlowState.prompt.length < 20) {
         setProjectFlowError('Add a more detailed website prompt (at least 20 characters).');
@@ -1291,6 +1354,9 @@
     }
     if (websitePromptInput) {
       websitePromptInput.value = '';
+    }
+    if (aiProjectIdInput) {
+      aiProjectIdInput.value = '';
     }
     clearGenerationImages();
     resetAiGenerationUi();
@@ -1955,6 +2021,17 @@
     if (websitePromptInput) {
       websitePromptInput.addEventListener('input', function () {
         setAiGenerationFeedback('', '');
+      });
+    }
+
+    if (aiProjectIdInput) {
+      aiProjectIdInput.addEventListener('input', function () {
+        projectFlowState.aiProjectId = slugifyProjectId(aiProjectIdInput.value);
+        setAiGenerationFeedback('', '');
+      });
+      aiProjectIdInput.addEventListener('blur', function () {
+        aiProjectIdInput.value = slugifyProjectId(aiProjectIdInput.value);
+        projectFlowState.aiProjectId = aiProjectIdInput.value;
       });
     }
 

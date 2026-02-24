@@ -6,7 +6,7 @@ export interface AiGenerationImageInput {
 }
 
 export interface AiGenerationRequest {
-  projectId?: string;
+  projectId: string;
   userRequest: string;
   images?: AiGenerationImageInput[];
 }

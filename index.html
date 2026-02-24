@@ -367,6 +367,15 @@
 
               <div id="project-step-4" class="project-step-pane" hidden>
                 <h3 class="settings-subtitle">Website Prompt</h3>
+                <label for="ai-project-id-input" class="field-label">Project ID</label>
+                <input
+                  id="ai-project-id-input"
+                  class="field-input"
+                  type="text"
+                  maxlength="120"
+                  autocomplete="off"
+                  placeholder="auto-generated-project-id"
+                />
                 <label for="website-prompt-input" class="field-label">Describe what you want to build</label>
                 <textarea
                   id="website-prompt-input"
@@ -391,6 +400,7 @@
                 <div class="checkout-grid">
                   <div class="checkout-row"><span>Plan</span><span id="checkout-plan">--</span></div>
                   <div class="checkout-row"><span>Project</span><span id="checkout-project-name">--</span></div>
+                  <div class="checkout-row"><span>AI Project ID</span><span id="checkout-project-id">--</span></div>
                   <div class="checkout-row"><span>Domain</span><span id="checkout-domain">--</span></div>
                   <div class="checkout-row"><span>Domain Cost</span><span id="checkout-domain-cost">$0</span></div>
                   <div class="checkout-row"><span>Subdomain</span><span id="checkout-subdomain">None</span></div>
