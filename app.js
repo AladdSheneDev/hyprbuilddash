@@ -29,6 +29,7 @@
   var settingsPrimaryEmailInput = document.getElementById('settings-primary-email');
   var settingsBackupEmailInput = document.getElementById('settings-backup-email');
   var settingsPhotoFileInput = document.getElementById('settings-photo-file');
+  var settingsPhotoFileName = document.getElementById('settings-photo-file-name');
   var settingsCurrentPasswordInput = document.getElementById('settings-current-password');
   var settingsNewPasswordInput = document.getElementById('settings-new-password');
   var settingsConfirmPasswordInput = document.getElementById('settings-confirm-password');
@@ -234,6 +235,14 @@
       return;
     }
     settingsFeedback.classList.add(isError ? 'is-error' : 'is-success');
+  };
+
+  var updatePhotoFileNameLabel = function () {
+    if (!settingsPhotoFileName) {
+      return;
+    }
+    var file = settingsPhotoFileInput && settingsPhotoFileInput.files ? settingsPhotoFileInput.files[0] : null;
+    settingsPhotoFileName.textContent = file && file.name ? file.name : 'No file selected';
   };
 
   var pushActivity = function (message) {
@@ -1129,6 +1138,7 @@
       if (settingsPhotoFileInput) {
         settingsPhotoFileInput.value = '';
       }
+      updatePhotoFileNameLabel();
       pushActivity('Profile picture updated.');
       setSettingsFeedback('Profile picture updated successfully.', false);
     } catch (error) {
@@ -1315,6 +1325,10 @@
       settingsPhotoForm.addEventListener('submit', function (event) {
         void updateProfilePhoto(event);
       });
+    }
+
+    if (settingsPhotoFileInput) {
+      settingsPhotoFileInput.addEventListener('change', updatePhotoFileNameLabel);
     }
 
     if (settingsEmailForm) {
@@ -1542,6 +1556,7 @@
   var boot = async function () {
     wireButtons();
     resetProjectFlow();
+    updatePhotoFileNameLabel();
     if (!window.location.hash) {
       window.history.replaceState(null, '', '#overview');
     }

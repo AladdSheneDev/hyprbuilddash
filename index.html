@@ -203,7 +203,11 @@
                 <form id="settings-photo-form" class="settings-form" novalidate>
                   <h3 class="settings-subtitle">Profile Picture</h3>
                   <label for="settings-photo-file" class="field-label">Upload new photo</label>
-                  <input id="settings-photo-file" class="field-input" type="file" accept="image/*" />
+                  <input id="settings-photo-file" class="photo-file-input" type="file" accept="image/*" />
+                  <div class="photo-upload-control">
+                    <label for="settings-photo-file" class="btn btn-secondary btn-inline">Select Photo</label>
+                    <span id="settings-photo-file-name" class="photo-file-name">No file selected</span>
+                  </div>
                   <button type="submit" class="btn btn-primary" aria-label="Update profile picture">Update Photo</button>
                 </form>
 

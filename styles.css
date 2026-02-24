@@ -282,6 +282,30 @@ body {
   opacity: 0.8;
 }
 
+.photo-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.photo-upload-control {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 2.35rem;
+}
+
+.photo-file-name {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.3;
+}
+
 .content {
   padding: 1.8rem;
   display: grid;
