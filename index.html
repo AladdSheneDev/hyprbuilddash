@@ -376,6 +376,13 @@
                   placeholder="Example: Build a modern SaaS marketing website for a cybersecurity startup with clear CTA sections, pricing, FAQs, and a trusted enterprise look."
                   required
                 ></textarea>
+                <div class="generation-images-wrap">
+                  <label class="field-label">Reference Images (Optional)</label>
+                  <div id="generation-images-list" class="generation-images-list"></div>
+                  <button id="add-generation-image-button" type="button" class="btn btn-secondary btn-inline">
+                    Add Image
+                  </button>
+                </div>
                 <p class="project-hint">Be specific about pages, tone, visual direction, and conversion goals.</p>
               </div>
 
@@ -390,7 +397,57 @@
                   <div class="checkout-row"><span>Subdomain Use</span><span id="checkout-subdomain-use">N/A</span></div>
                   <div class="checkout-row checkout-total"><span>Total</span><span id="checkout-total">$0</span></div>
                 </div>
-                <button id="checkout-button" type="button" class="btn btn-primary checkout-button">Proceed to Checkout</button>
+                <div class="ai-generate-actions">
+                  <button id="checkout-button" type="button" class="btn btn-primary checkout-button">Generate with AI</button>
+                  <button id="ai-retry-button" type="button" class="btn btn-secondary btn-inline" hidden>Retry</button>
+                </div>
+                <p id="ai-generation-feedback" class="project-hint" role="status" aria-live="polite"></p>
+
+                <section id="ai-generation-results" class="ai-results" hidden>
+                  <article class="ai-result-card">
+                    <h4>Planner</h4>
+                    <p id="ai-planner-summary" class="project-hint">No planner output yet.</p>
+                  </article>
+
+                  <article class="ai-result-card">
+                    <h4>Backend</h4>
+                    <div class="ai-metric-list">
+                      <div><span>Contracts</span><span id="ai-backend-contracts">--</span></div>
+                      <div><span>Files</span><span id="ai-backend-files">--</span></div>
+                      <div><span>Refinement Cycles</span><span id="ai-refinement-cycles">--</span></div>
+                    </div>
+                  </article>
+
+                  <article class="ai-result-card">
+                    <h4>Pages</h4>
+                    <ul id="ai-pages-list" class="ai-list">
+                      <li>No pages generated yet.</li>
+                    </ul>
+                  </article>
+
+                  <article class="ai-result-card">
+                    <h4>Tester</h4>
+                    <div class="ai-metric-list">
+                      <div><span>Status</span><span id="ai-tester-status">--</span></div>
+                      <div><span>Score</span><span id="ai-tester-score">--</span></div>
+                    </div>
+                    <ul id="ai-tester-issues" class="ai-list">
+                      <li>No tester issues.</li>
+                    </ul>
+                  </article>
+
+                  <article class="ai-result-card">
+                    <h4>Usage</h4>
+                    <div class="ai-metric-list">
+                      <div><span>Total Calls</span><span id="ai-usage-total-calls">--</span></div>
+                      <div><span>Input Tokens</span><span id="ai-usage-input-tokens">--</span></div>
+                      <div><span>Output Tokens</span><span id="ai-usage-output-tokens">--</span></div>
+                    </div>
+                    <ul id="ai-usage-by-agent" class="ai-list">
+                      <li>No usage data yet.</li>
+                    </ul>
+                  </article>
+                </section>
               </div>
 
               <div class="project-actions">
@@ -403,6 +460,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=20260222-2" defer></script>
+    <script src="app.js?v=20260224-1" defer></script>
   </body>
 </html>

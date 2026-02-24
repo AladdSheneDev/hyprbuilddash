@@ -2,6 +2,10 @@
   var API_BASE = 'https://hyprbuild.app/api';
   var LOGIN_URL = 'https://hyprbuild.app/login.html?next=' + encodeURIComponent(window.location.href);
   var CLERK_PUBLISHABLE_KEY = 'pk_live_Y2xlcmsuaHlwcmJ1aWxkLmFwcCQ';
+  /**
+   * @typedef {import('./types/ai-generation').AiGenerationRequest} AiGenerationRequest
+   * @typedef {import('./types/ai-generation').AiGenerationResponse} AiGenerationResponse
+   */
 
   var sidebar = document.getElementById('sidebar');
   var menuToggle = document.getElementById('menu-toggle');
@@ -49,9 +53,26 @@
   var subdomainList = document.getElementById('subdomain-list');
   var addSubdomainButton = document.getElementById('add-subdomain-button');
   var websitePromptInput = document.getElementById('website-prompt-input');
+  var generationImagesList = document.getElementById('generation-images-list');
+  var addGenerationImageButton = document.getElementById('add-generation-image-button');
   var projectBackButton = document.getElementById('project-back-button');
   var projectNextButton = document.getElementById('project-next-button');
   var checkoutButton = document.getElementById('checkout-button');
+  var aiRetryButton = document.getElementById('ai-retry-button');
+  var aiGenerationFeedback = document.getElementById('ai-generation-feedback');
+  var aiGenerationResults = document.getElementById('ai-generation-results');
+  var aiPlannerSummary = document.getElementById('ai-planner-summary');
+  var aiBackendContracts = document.getElementById('ai-backend-contracts');
+  var aiBackendFiles = document.getElementById('ai-backend-files');
+  var aiRefinementCycles = document.getElementById('ai-refinement-cycles');
+  var aiPagesList = document.getElementById('ai-pages-list');
+  var aiTesterStatus = document.getElementById('ai-tester-status');
+  var aiTesterScore = document.getElementById('ai-tester-score');
+  var aiTesterIssues = document.getElementById('ai-tester-issues');
+  var aiUsageTotalCalls = document.getElementById('ai-usage-total-calls');
+  var aiUsageInputTokens = document.getElementById('ai-usage-input-tokens');
+  var aiUsageOutputTokens = document.getElementById('ai-usage-output-tokens');
+  var aiUsageByAgent = document.getElementById('ai-usage-by-agent');
   var checkoutPlan = document.getElementById('checkout-plan');
   var checkoutProjectName = document.getElementById('checkout-project-name');
   var checkoutDomain = document.getElementById('checkout-domain');
@@ -87,7 +108,8 @@
     selectedDomain: null,
     useSubdomain: false,
     subdomains: [],
-    prompt: ''
+    prompt: '',
+    aiProjectId: ''
   };
 
   var PLAN_OPTIONS = {
@@ -243,6 +265,476 @@
     }
     var file = settingsPhotoFileInput && settingsPhotoFileInput.files ? settingsPhotoFileInput.files[0] : null;
     settingsPhotoFileName.textContent = file && file.name ? file.name : 'No file selected';
+  };
+
+  var setAiGenerationFeedback = function (message, kind) {
+    if (!aiGenerationFeedback) {
+      return;
+    }
+    aiGenerationFeedback.textContent = message || '';
+    aiGenerationFeedback.classList.remove('is-error', 'is-success');
+    if (kind === 'error') {
+      aiGenerationFeedback.classList.add('is-error');
+    }
+    if (kind === 'success') {
+      aiGenerationFeedback.classList.add('is-success');
+    }
+  };
+
+  var readFileAsDataUrl = function (file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () {
+        resolve(String(reader.result || ''));
+      };
+      reader.onerror = function () {
+        reject(new Error('Could not read selected image file.'));
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  var setListMarkup = function (element, items, emptyText) {
+    if (!element) {
+      return;
+    }
+    if (!Array.isArray(items) || items.length === 0) {
+      element.innerHTML = '<li>' + escapeHtml(emptyText) + '</li>';
+      return;
+    }
+    element.innerHTML = items
+      .map(function (item) {
+        return '<li>' + escapeHtml(item) + '</li>';
+      })
+      .join('');
+  };
+
+  var countEntries = function (value) {
+    if (Array.isArray(value)) {
+      return value.length;
+    }
+    if (value && typeof value === 'object') {
+      return Object.keys(value).length;
+    }
+    return 0;
+  };
+
+  var getPlannerSummary = function (planner) {
+    if (!planner) {
+      return 'No planner output returned.';
+    }
+    if (typeof planner === 'string') {
+      return planner;
+    }
+    if (typeof planner.summary === 'string' && planner.summary.trim()) {
+      return planner.summary.trim();
+    }
+    if (typeof planner.overview === 'string' && planner.overview.trim()) {
+      return planner.overview.trim();
+    }
+    if (Array.isArray(planner.goals) && planner.goals.length > 0) {
+      return planner.goals
+        .slice(0, 3)
+        .map(function (goal) {
+          return String(goal);
+        })
+        .join(' | ');
+    }
+    var keys = Object.keys(planner);
+    return keys.length > 0 ? keys.length + ' planner sections generated.' : 'No planner output returned.';
+  };
+
+  var normalizeIssue = function (issue) {
+    if (typeof issue === 'string') {
+      return issue;
+    }
+    if (issue && typeof issue === 'object') {
+      if (typeof issue.message === 'string' && issue.message.trim()) {
+        return issue.message.trim();
+      }
+      if (typeof issue.title === 'string' && issue.title.trim()) {
+        return issue.title.trim();
+      }
+      return JSON.stringify(issue);
+    }
+    return String(issue);
+  };
+
+  var normalizePageOutput = function (page, index) {
+    if (typeof page === 'string') {
+      return page;
+    }
+    if (!page || typeof page !== 'object') {
+      return 'Page ' + (index + 1);
+    }
+    var label = page.title || page.name || page.route || page.slug || page.path || 'Page ' + (index + 1);
+    var detail = page.path || page.route || page.url || '';
+    return detail && detail !== label ? String(label) + ' (' + String(detail) + ')' : String(label);
+  };
+
+  var normalizeAgentUsage = function (name, details) {
+    if (typeof details === 'number') {
+      return name + ': ' + formatNumber(details) + ' calls';
+    }
+    if (details && typeof details === 'object') {
+      var calls = parseOptionalNumber(details.calls);
+      var inputTokens = parseOptionalNumber(details.inputTokens || details.totalInputTokens);
+      var outputTokens = parseOptionalNumber(details.outputTokens || details.totalOutputTokens);
+      var segments = [];
+      if (calls !== null) {
+        segments.push(formatNumber(calls) + ' calls');
+      }
+      if (inputTokens !== null) {
+        segments.push(formatNumber(inputTokens) + ' in');
+      }
+      if (outputTokens !== null) {
+        segments.push(formatNumber(outputTokens) + ' out');
+      }
+      return segments.length > 0 ? name + ': ' + segments.join(', ') : name + ': usage recorded';
+    }
+    return name + ': usage recorded';
+  };
+
+  var renderAiGenerationResults = function (result) {
+    if (aiGenerationResults) {
+      aiGenerationResults.hidden = false;
+    }
+
+    if (aiPlannerSummary) {
+      aiPlannerSummary.textContent = getPlannerSummary(result ? result.planner : null);
+    }
+
+    var backend = result && result.backend ? result.backend : {};
+    var contractsCount = countEntries(backend.contracts || backend.apiContracts || backend.endpoints);
+    var filesCount = countEntries(backend.files || backend.generatedFiles || backend.fileMap || backend.artifacts);
+    if (aiBackendContracts) {
+      aiBackendContracts.textContent = formatNumber(contractsCount);
+    }
+    if (aiBackendFiles) {
+      aiBackendFiles.textContent = formatNumber(filesCount);
+    }
+    if (aiRefinementCycles) {
+      var cycles = result && hasOwn(result, 'refinementCycles') ? parseOptionalNumber(result.refinementCycles) : null;
+      aiRefinementCycles.textContent = cycles === null ? '--' : formatNumber(cycles);
+    }
+
+    var pageOutputs = Array.isArray(result && result.pages)
+      ? result.pages.map(function (page, index) {
+          return normalizePageOutput(page, index);
+        })
+      : [];
+    setListMarkup(aiPagesList, pageOutputs, 'No pages generated yet.');
+
+    var tester = result && result.tester ? result.tester : {};
+    if (aiTesterStatus) {
+      aiTesterStatus.textContent = tester.status ? String(tester.status).toUpperCase() : '--';
+    }
+    if (aiTesterScore) {
+      var testerScore = hasOwn(tester, 'score') ? parseOptionalNumber(tester.score) : null;
+      aiTesterScore.textContent = testerScore === null ? '--' : formatNumber(testerScore);
+    }
+    var issues = Array.isArray(tester.issues)
+      ? tester.issues.map(function (issue) {
+          return normalizeIssue(issue);
+        })
+      : [];
+    setListMarkup(aiTesterIssues, issues, 'No tester issues.');
+
+    var usage = result && result.usage ? result.usage : {};
+    if (aiUsageTotalCalls) {
+      var totalCalls = hasOwn(usage, 'totalCalls') ? parseOptionalNumber(usage.totalCalls) : null;
+      aiUsageTotalCalls.textContent = totalCalls === null ? '--' : formatNumber(totalCalls);
+    }
+    if (aiUsageInputTokens) {
+      var inputTokens = hasOwn(usage, 'totalInputTokens') ? parseOptionalNumber(usage.totalInputTokens) : null;
+      aiUsageInputTokens.textContent = inputTokens === null ? '--' : formatNumber(inputTokens);
+    }
+    if (aiUsageOutputTokens) {
+      var outputTokens = hasOwn(usage, 'totalOutputTokens') ? parseOptionalNumber(usage.totalOutputTokens) : null;
+      aiUsageOutputTokens.textContent = outputTokens === null ? '--' : formatNumber(outputTokens);
+    }
+
+    var byAgent = usage && usage.byAgent && typeof usage.byAgent === 'object' ? usage.byAgent : {};
+    var byAgentItems = Object.keys(byAgent).map(function (name) {
+      return normalizeAgentUsage(name, byAgent[name]);
+    });
+    setListMarkup(aiUsageByAgent, byAgentItems, 'No usage data yet.');
+  };
+
+  var resetAiGenerationUi = function () {
+    setAiGenerationFeedback('', '');
+    if (aiGenerationResults) {
+      aiGenerationResults.hidden = true;
+    }
+    if (aiRetryButton) {
+      aiRetryButton.hidden = true;
+    }
+    if (checkoutButton) {
+      checkoutButton.disabled = false;
+      checkoutButton.textContent = 'Generate with AI';
+    }
+  };
+
+  var refreshGenerationImageLabels = function () {
+    if (!generationImagesList) {
+      return;
+    }
+    Array.from(generationImagesList.querySelectorAll('[data-generation-image-row]')).forEach(function (row, index) {
+      var title = row.querySelector('.generation-image-title');
+      if (title) {
+        title.textContent = 'Image ' + (index + 1);
+      }
+      var fileInput = row.querySelector('[data-generation-image-file]');
+      var fileName = row.querySelector('[data-generation-image-file-name]');
+      if (fileName) {
+        var file = fileInput && fileInput.files ? fileInput.files[0] : null;
+        fileName.textContent = file && file.name ? file.name : 'No file selected';
+      }
+    });
+  };
+
+  var createGenerationImageRow = function () {
+    var row = document.createElement('div');
+    row.className = 'generation-image-row';
+    row.setAttribute('data-generation-image-row', 'true');
+
+    row.innerHTML =
+      '<div class="generation-image-head">' +
+      '<p class="generation-image-title">Image</p>' +
+      '<button type="button" class="btn btn-secondary btn-inline" data-generation-image-remove="true">Remove</button>' +
+      '</div>' +
+      '<div class="generation-image-grid">' +
+      '<div>' +
+      '<label class="field-label">Image URL</label>' +
+      '<input class="field-input" type="url" placeholder="https://example.com/reference.png" data-generation-image-url="true" />' +
+      '</div>' +
+      '<div>' +
+      '<label class="field-label">Or Upload Image</label>' +
+      '<input class="generation-file-input" type="file" accept="image/*" data-generation-image-file="true" />' +
+      '<div class="generation-file-meta">' +
+      '<label class="btn btn-secondary btn-inline" data-generation-image-file-label="true">Select File</label>' +
+      '<span class="generation-file-name" data-generation-image-file-name="true">No file selected</span>' +
+      '</div>' +
+      '</div>' +
+      '</div>';
+
+    var fileInput = row.querySelector('[data-generation-image-file]');
+    var fileLabel = row.querySelector('[data-generation-image-file-label]');
+    if (fileInput && fileLabel) {
+      var fileId = 'generation-image-file-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+      fileInput.id = fileId;
+      fileLabel.setAttribute('for', fileId);
+      fileInput.addEventListener('change', function () {
+        refreshGenerationImageLabels();
+      });
+    }
+
+    var removeButton = row.querySelector('[data-generation-image-remove]');
+    if (removeButton) {
+      removeButton.addEventListener('click', function () {
+        row.remove();
+        refreshGenerationImageLabels();
+      });
+    }
+
+    return row;
+  };
+
+  var addGenerationImageRow = function () {
+    if (!generationImagesList) {
+      return;
+    }
+    generationImagesList.appendChild(createGenerationImageRow());
+    refreshGenerationImageLabels();
+  };
+
+  var clearGenerationImages = function () {
+    if (!generationImagesList) {
+      return;
+    }
+    generationImagesList.innerHTML = '';
+  };
+
+  var collectGenerationImages = async function () {
+    if (!generationImagesList) {
+      return [];
+    }
+
+    var rows = Array.from(generationImagesList.querySelectorAll('[data-generation-image-row]'));
+    var images = [];
+
+    for (var index = 0; index < rows.length; index += 1) {
+      var row = rows[index];
+      var urlInput = row.querySelector('[data-generation-image-url]');
+      var fileInput = row.querySelector('[data-generation-image-file]');
+      var url = urlInput ? urlInput.value.trim() : '';
+      var file = fileInput && fileInput.files ? fileInput.files[0] : null;
+
+      if (!url && !file) {
+        continue;
+      }
+
+      if (url && !file) {
+        try {
+          new URL(url);
+        } catch (error) {
+          throw new Error('Image URL ' + (index + 1) + ' is not valid.');
+        }
+        images.push({ url: url });
+        continue;
+      }
+
+      if (file) {
+        var dataUrl = await readFileAsDataUrl(file);
+        images.push({
+          dataUrl: dataUrl,
+          mimeType: file.type || ''
+        });
+      }
+    }
+
+    return images;
+  };
+
+  var getSessionToken = async function () {
+    if (clerkInstance && clerkInstance.session && typeof clerkInstance.session.getToken === 'function') {
+      authToken = (await clerkInstance.session.getToken()) || authToken;
+    }
+    return authToken || '';
+  };
+
+  var parseValidationMessage = function (payload, fallbackMessage) {
+    if (!payload) {
+      return fallbackMessage;
+    }
+    if (typeof payload.message === 'string' && payload.message.trim()) {
+      return payload.message.trim();
+    }
+    if (payload.error && typeof payload.error.message === 'string' && payload.error.message.trim()) {
+      return payload.error.message.trim();
+    }
+    if (Array.isArray(payload.errors) && payload.errors.length > 0) {
+      return payload.errors
+        .map(function (entry) {
+          return normalizeIssue(entry);
+        })
+        .join(' | ');
+    }
+    return fallbackMessage;
+  };
+
+  var runAiGeneration = async function () {
+    projectFlowState.prompt = websitePromptInput ? websitePromptInput.value.trim() : '';
+    if (!projectFlowState.prompt) {
+      setAiGenerationFeedback('Add a website request before generating.', 'error');
+      return;
+    }
+
+    var images = [];
+    try {
+      images = await collectGenerationImages();
+    } catch (error) {
+      var imageError = error && error.message ? error.message : 'Image validation failed.';
+      setAiGenerationFeedback(imageError, 'error');
+      return;
+    }
+
+    var token = await getSessionToken();
+    if (!token) {
+      window.location.href = LOGIN_URL;
+      return;
+    }
+
+    /** @type {AiGenerationRequest} */
+    var payload = {
+      userRequest: projectFlowState.prompt,
+      images: images
+    };
+    if (projectFlowState.aiProjectId) {
+      payload.projectId = projectFlowState.aiProjectId;
+    }
+
+    if (checkoutButton) {
+      checkoutButton.disabled = true;
+      checkoutButton.textContent = 'Generating...';
+    }
+    if (aiRetryButton) {
+      aiRetryButton.hidden = true;
+    }
+    setAiGenerationFeedback('Running generation pipeline...', '');
+
+    try {
+      var response = await window.fetch(API_BASE + '/ai/projects/generate', {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify(payload)
+      });
+
+      var responsePayload = null;
+      try {
+        responsePayload = await response.json();
+      } catch (parseError) {
+        responsePayload = null;
+      }
+
+      if (response.status === 401) {
+        setAiGenerationFeedback('Session expired. Redirecting to sign in.', 'error');
+        window.setTimeout(function () {
+          window.location.href = LOGIN_URL;
+        }, 400);
+        return;
+      }
+      if (response.status === 400) {
+        setAiGenerationFeedback(parseValidationMessage(responsePayload, 'Generation request is invalid.'), 'error');
+        return;
+      }
+      if (response.status === 429) {
+        setAiGenerationFeedback('Too many generation requests. Please retry in a moment.', 'error');
+        return;
+      }
+      if (response.status === 500 || response.status === 502) {
+        setAiGenerationFeedback('Backend generation failed. Please retry shortly.', 'error');
+        return;
+      }
+      if (!response.ok) {
+        setAiGenerationFeedback(parseValidationMessage(responsePayload, 'Generation request failed.'), 'error');
+        return;
+      }
+
+      /** @type {AiGenerationResponse} */
+      var result = responsePayload || {};
+      renderAiGenerationResults(result);
+      projectFlowState.aiProjectId = result.projectId || projectFlowState.aiProjectId;
+
+      var generationFailed = String(result.status || '').toLowerCase() === 'failed';
+      var testerFailed = result && result.tester && String(result.tester.status || '').toLowerCase() === 'fail';
+      if (generationFailed || testerFailed) {
+        if (aiRetryButton) {
+          aiRetryButton.hidden = false;
+        }
+        if (generationFailed) {
+          setAiGenerationFeedback('Generation failed. Review results and retry.', 'error');
+        } else {
+          setAiGenerationFeedback('Generation completed with tester issues. Review issues and retry.', 'error');
+        }
+      } else {
+        setAiGenerationFeedback('Generation completed successfully.', 'success');
+      }
+
+      pushActivity('AI generation finished for ' + (projectFlowState.projectName || 'new project') + '.');
+    } catch (error) {
+      var networkError = error && error.message ? error.message : 'Generation failed.';
+      setAiGenerationFeedback(networkError, 'error');
+    } finally {
+      if (checkoutButton) {
+        checkoutButton.disabled = false;
+        checkoutButton.textContent = 'Generate with AI';
+      }
+    }
   };
 
   var pushActivity = function (message) {
@@ -773,7 +1265,8 @@
       selectedDomain: null,
       useSubdomain: false,
       subdomains: [],
-      prompt: ''
+      prompt: '',
+      aiProjectId: ''
     };
     setPlanSelection('');
     setProjectFlowError('');
@@ -799,6 +1292,8 @@
     if (websitePromptInput) {
       websitePromptInput.value = '';
     }
+    clearGenerationImages();
+    resetAiGenerationUi();
     updateSubdomainFields();
     renderProjectFlowStep();
   };
@@ -1457,6 +1952,12 @@
       });
     }
 
+    if (websitePromptInput) {
+      websitePromptInput.addEventListener('input', function () {
+        setAiGenerationFeedback('', '');
+      });
+    }
+
     if (useSubdomainCheckbox) {
       useSubdomainCheckbox.addEventListener('change', function () {
         updateSubdomainFields();
@@ -1472,6 +1973,12 @@
         var index = subdomainList.querySelectorAll('[data-subdomain-row]').length;
         subdomainList.appendChild(createSubdomainRow(index, { name: '', purpose: '' }));
         refreshSubdomainRowTitles();
+      });
+    }
+
+    if (addGenerationImageButton) {
+      addGenerationImageButton.addEventListener('click', function () {
+        addGenerationImageRow();
       });
     }
 
@@ -1499,7 +2006,13 @@
 
     if (checkoutButton) {
       checkoutButton.addEventListener('click', function () {
-        setProjectFlowError('Checkout integration is next. Your project setup is ready.');
+        void runAiGeneration();
+      });
+    }
+
+    if (aiRetryButton) {
+      aiRetryButton.addEventListener('click', function () {
+        void runAiGeneration();
       });
     }
   };
