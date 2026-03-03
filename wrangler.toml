@@ -13,8 +13,7 @@ pages_build_output_dir = "."
 # If you want to publish to a custom domain or zone, add `zone_id` and
 # a `route` entry (or configure it on the Cloudflare dashboard after
 # the first deploy).  For example:
-# zone_id = "<your-zone-id>"
-# route = "dash.hyprbuild.app/*"
+
 
 # You should fill in your Cloudflare account ID before deploying.
 # Example:

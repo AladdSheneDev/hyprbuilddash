@@ -1614,39 +1614,6 @@
       projectPlanLoading.hidden = false;
       setInlineLoadingText(projectPlanLoading, 'Refining plan');
     }
-  };
-
-  // payment helpers
-  var updatePaymentSummary = function () {
-    if (paymentProjectName) paymentProjectName.textContent = projectFlowState.projectName || '';
-    if (paymentDomain) paymentDomain.textContent = projectFlowState.selectedDomain ? projectFlowState.selectedDomain.name : '';
-    if (paymentDomainCost) {
-      var cost = 0;
-      if (projectFlowState.selectedDomain && typeof projectFlowState.selectedDomain.price === 'number') {
-        cost = projectFlowState.selectedDomain.price;
-      }
-      paymentDomainCost.textContent = cost ? formatCurrency(cost) : '';
-    }
-    if (paymentTotal) {
-      var total = 0;
-      if (projectFlowState.selectedDomain && typeof projectFlowState.selectedDomain.price === 'number') {
-        total += projectFlowState.selectedDomain.price;
-      }
-      paymentTotal.textContent = formatCurrency(total);
-    }
-  };
-
-  var goToPaymentStep = function () {
-    if (projectBuildArrow) {
-      projectBuildArrow.disabled = true;
-    }
-    projectFlowStep = 5;
-    updatePaymentSummary();
-    renderProjectFlowStep();
-  };
-
-  var delay = function (durationMs) {
-
     var assistantReply = '';
     try {
       var response = await tryApiCandidates([
@@ -1690,6 +1657,35 @@
     }
     appendPlanChatMessage('assistant', assistantReply);
     await updateProjectRecord('plan_refined');
+  };
+
+  // payment helpers
+  var updatePaymentSummary = function () {
+    if (paymentProjectName) paymentProjectName.textContent = projectFlowState.projectName || '';
+    if (paymentDomain) paymentDomain.textContent = projectFlowState.selectedDomain ? projectFlowState.selectedDomain.name : '';
+    if (paymentDomainCost) {
+      var cost = 0;
+      if (projectFlowState.selectedDomain && typeof projectFlowState.selectedDomain.price === 'number') {
+        cost = projectFlowState.selectedDomain.price;
+      }
+      paymentDomainCost.textContent = cost ? formatCurrency(cost) : '';
+    }
+    if (paymentTotal) {
+      var total = 0;
+      if (projectFlowState.selectedDomain && typeof projectFlowState.selectedDomain.price === 'number') {
+        total += projectFlowState.selectedDomain.price;
+      }
+      paymentTotal.textContent = formatCurrency(total);
+    }
+  };
+
+  var goToPaymentStep = function () {
+    if (projectBuildArrow) {
+      projectBuildArrow.disabled = true;
+    }
+    projectFlowStep = 5;
+    updatePaymentSummary();
+    renderProjectFlowStep();
   };
 
   var delay = function (durationMs) {
