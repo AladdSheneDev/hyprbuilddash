@@ -8,6 +8,24 @@ workers_dev = true
 [site]
 bucket = "./"
 
+# Pages integration: tells Wrangler which directory contains static
+# assets when deploying via `wrangler pages deploy`.
+pages_build_output_dir = "./"
+
+# Environment variables (example for Clerk publishable key)
+[env.production]
+  vars = { CLERK_PUBLISHABLE_KEY = "pk_live_Y2xlcmsuaHlwcmJ1aWxkLmFwcCQ" }
+
+# You should fill in your Cloudflare account ID before deploying.
+# Example:
+# account_id = "53b69adf0ea369bc454c695ed692dbaa"
+
+# If you want to publish to a custom domain or zone, add `zone_id` and
+# a `route` entry (or configure it on the Cloudflare dashboard after
+# the first deploy).  For example:
+# zone_id = "<your-zone-id>"
+# route = "dash.hyprbuild.app/*"
+
 # You should fill in your Cloudflare account ID before deploying.
 # Example:
 # account_id = "53b69adf0ea369bc454c695ed692dbaa"
