@@ -1,5 +1,8 @@
 (function () {
-  var API_BASE = 'https://hyprbuild.app/api';
+  var API_BASE =
+    window.location.hostname === 'hyprbuild.app' || window.location.hostname === 'dash.hyprbuild.app'
+      ? window.location.origin + '/api'
+      : 'https://hyprbuild.app/api';
   var LOGIN_URL = 'https://hyprbuild.app/login.html?next=' + encodeURIComponent(window.location.href);
   var CLERK_PUBLISHABLE_KEY = 'pk_live_Y2xlcmsuaHlwcmJ1aWxkLmFwcCQ';
   /**
@@ -76,6 +79,8 @@
   var publishContinueArrow = document.getElementById('publish-continue-arrow');
   var projectCloseSaveButton = document.getElementById('project-close-save-button');
   var projectPublishStatus = document.getElementById('project-publish-status');
+  var projectCyclePrev = document.getElementById('project-cycle-prev');
+  var projectCycleNext = document.getElementById('project-cycle-next');
   
   // payment step DOM refs
   var paymentProjectName = document.getElementById('payment-project-name');
@@ -855,7 +860,8 @@
   };
 
   var setCurrentView = function (route, syncHash) {
-    var nextView = route === 'settings' || route.startsWith('new-project') ? 'new-project' : 'overview';
+    var routeValue = String(route || '').toLowerCase();
+    var nextView = routeValue === 'settings' ? 'settings' : routeValue.indexOf('new-project') === 0 ? 'new-project' : 'overview';
     currentView = nextView;
 
     // when in new-project mode we hide the sidebar for a clean wizard experience
@@ -923,7 +929,7 @@
     }
 
     if (syncHash) {
-      var expectedHash = '#' + nextView;
+      var expectedHash = nextView === 'new-project' ? '#new-project/step' + projectFlowStep : '#' + nextView;
       if (window.location.hash !== expectedHash) {
         window.history.replaceState(null, '', expectedHash);
       }
@@ -1227,34 +1233,12 @@
   };
 
   var createProjectRecord = async function (projectName) {
-    var snapshot = buildProjectJsonSnapshot('name_set');
-    var response = await tryApiCandidates([
-      {
-        path: '/projects',
-        method: 'POST',
-        body: {
-          name: projectName,
-          projectName: projectName,
-          projectJson: snapshot
-        }
-      },
-      {
-        path: '/projects/create',
-        method: 'POST',
-        body: {
-          name: projectName,
-          projectJson: snapshot
-        }
-      },
-      {
-        path: '/ai/projects',
-        method: 'POST',
-        body: {
-          name: projectName,
-          projectJson: snapshot
-        }
+    var response = await apiRequest('/projects', {
+      method: 'POST',
+      body: {
+        name: projectName
       }
-    ]);
+    });
 
     var projectId = extractProjectId(response);
     if (!projectId) {
@@ -1262,6 +1246,7 @@
     }
     projectFlowState.projectId = projectId;
     projectFlowState.nameSaved = true;
+    await updateProjectRecord('name_set');
     return response;
   };
 
@@ -1271,35 +1256,14 @@
     }
     var projectId = encodeURIComponent(projectFlowState.projectId);
     var snapshot = buildProjectJsonSnapshot(stage, extra);
-    try {
-      await tryApiCandidates([
-        {
-          path: '/projects/' + projectId,
-          method: 'PATCH',
-          body: {
-            name: projectFlowState.projectName,
-            projectJson: snapshot
-          }
-        },
-        {
-          path: '/projects/' + projectId + '/project-json',
-          method: 'PUT',
-          body: {
-            projectJson: snapshot
-          }
-        },
-        {
-          path: '/projects/' + projectId + '/project.json',
-          method: 'PUT',
-          body: {
-            projectJson: snapshot
-          }
-        }
-      ]);
-      return true;
-    } catch (error) {
-      return false;
-    }
+    await apiRequest('/projects/' + projectId, {
+      method: 'PATCH',
+      body: {
+        stage: stage || 'project',
+        projectJson: snapshot
+      }
+    });
+    return true;
   };
 
   var saveProjectNameAndContinue = async function () {
@@ -1526,14 +1490,16 @@
 
     try {
       var assets = await collectPromptAssetsPayload();
+      var docNames = assets.documents.map(function (entry) {
+        return entry.name;
+      });
+      var fullRequest =
+        projectFlowState.prompt +
+        (docNames.length > 0 ? '\n\nReference documents: ' + docNames.slice(0, 8).join(', ') : '');
       var payload = {
         projectId: projectFlowState.projectId,
-        projectName: projectFlowState.projectName,
-        prompt: projectFlowState.prompt,
-        userRequest: projectFlowState.prompt,
-        domain: projectFlowState.selectedDomain ? projectFlowState.selectedDomain.name : '',
-        images: assets.images,
-        documents: assets.documents
+        userRequest: fullRequest,
+        images: assets.images
       };
 
       var response = await tryApiCandidates([
@@ -1541,20 +1507,6 @@
           path: '/ai/projects/plan',
           method: 'POST',
           body: payload
-        },
-        {
-          path: '/ai/projects/' + encodeURIComponent(projectFlowState.projectId) + '/plan',
-          method: 'POST',
-          body: payload
-        },
-        {
-          path: '/ai/projects/generate',
-          method: 'POST',
-          body: {
-            projectId: projectFlowState.projectId,
-            userRequest: projectFlowState.prompt,
-            images: assets.images
-          }
         }
       ]);
 
@@ -1616,29 +1568,21 @@
     }
     var assistantReply = '';
     try {
-      var response = await tryApiCandidates([
-        {
-          path: '/ai/projects/plan/chat',
-          method: 'POST',
-          body: {
-            projectId: projectFlowState.projectId,
-            message: message,
-            planSummary: projectFlowState.planSummary
-          }
-        },
-        {
-          path: '/ai/projects/' + encodeURIComponent(projectFlowState.projectId) + '/plan/chat',
-          method: 'POST',
-          body: {
-            message: message,
-            planSummary: projectFlowState.planSummary
-          }
-        }
-      ]);
+      var planRequest =
+        (projectFlowState.prompt || '') +
+        '\n\nCurrent approved plan:\n' +
+        (projectFlowState.planSummary || '') +
+        '\n\nRefinement request:\n' +
+        message;
 
-      assistantReply =
-        (response && (response.reply || response.message || response.planSummary || response.summary)) ||
-        'Plan updated. Continue refining or start the build.';
+      var response = await apiRequest('/ai/projects/plan', {
+        method: 'POST',
+        body: {
+          projectId: projectFlowState.projectId,
+          userRequest: planRequest
+        }
+      });
+      assistantReply = getPlanSummaryFromResponse(response) || 'Plan updated. Continue refining or start the build.';
     } catch (error) {
       assistantReply = 'Plan updated. Continue refining or start the build.';
     } finally {
@@ -1656,7 +1600,10 @@
       projectPlanSummaryText.textContent = assistantReply;
     }
     appendPlanChatMessage('assistant', assistantReply);
-    await updateProjectRecord('plan_refined');
+    try {
+      await updateProjectRecord('plan_refined');
+    } catch (error) {
+    }
   };
 
   // payment helpers
@@ -1726,26 +1673,24 @@
     }
 
     try {
-      await tryApiCandidates([
-        {
-          path: '/ai/projects/build',
-          method: 'POST',
-          body: {
-            projectId: projectFlowState.projectId,
-            prompt: projectFlowState.prompt,
-            planSummary: projectFlowState.planSummary
-          }
-        },
-        {
-          path: '/projects/' + encodeURIComponent(projectFlowState.projectId) + '/build',
-          method: 'POST',
-          body: {
-            prompt: projectFlowState.prompt,
-            planSummary: projectFlowState.planSummary
-          }
+      var buildRequest =
+        (projectFlowState.prompt || '') +
+        '\n\nApproved build plan:\n' +
+        (projectFlowState.planSummary || '') +
+        '\n\nGenerate backend and frontend based on this approved plan.';
+      await apiRequest('/ai/projects/build', {
+        method: 'POST',
+        body: {
+          projectId: projectFlowState.projectId,
+          userRequest: buildRequest
         }
-      ]);
+      });
     } catch (error) {
+      setProjectFlowError(error && error.message ? error.message : 'Build request failed.');
+      if (buildProgressLabel) {
+        setInlineLoadingText(buildProgressLabel, 'Build request failed');
+      }
+      return;
     }
 
     await delay(700);
@@ -1773,7 +1718,10 @@
     if (buildProgressLabel) {
       setInlineLoadingText(buildProgressLabel, 'Build complete');
     }
-    await updateProjectRecord('build_complete');
+    try {
+      await updateProjectRecord('build_complete');
+    } catch (error) {
+    }
     pushActivity('Build completed for "' + projectFlowState.projectName + '".');
   };
 
@@ -1815,22 +1763,9 @@
     }
 
     try {
-      await tryApiCandidates([
-        {
-          path: '/projects/' + encodeURIComponent(projectFlowState.projectId) + '/publish',
-          method: 'POST',
-          body: {
-            publish: true
-          }
-        },
-        {
-          path: '/ai/projects/publish',
-          method: 'POST',
-          body: {
-            projectId: projectFlowState.projectId
-          }
-        }
-      ]);
+      await apiRequest('/projects/' + encodeURIComponent(projectFlowState.projectId) + '/publish', {
+        method: 'POST'
+      });
       projectFlowState.publishCompleted = true;
       if (projectPublishStatus) {
         projectPublishStatus.textContent = 'Project published. You can preview again or close and save.';
@@ -1863,6 +1798,14 @@
   };
 
   var renderProjectFlowStep = function () {
+    var totalSteps = projectStepPanes.length || 7;
+    if (projectFlowStep < 1) {
+      projectFlowStep = 1;
+    }
+    if (projectFlowStep > totalSteps) {
+      projectFlowStep = totalSteps;
+    }
+
     projectStepPanes.forEach(function (pane, index) {
       pane.hidden = index + 1 !== projectFlowStep;
     });
@@ -1884,6 +1827,12 @@
     }
     if (buildPreviewArrow) {
       buildPreviewArrow.disabled = !projectFlowState.buildCompleted;
+    }
+    if (projectCyclePrev) {
+      projectCyclePrev.disabled = totalSteps < 2;
+    }
+    if (projectCycleNext) {
+      projectCycleNext.disabled = totalSteps < 2;
     }
 
     // update URL hash so each step looks like its own page
@@ -1971,6 +1920,20 @@
     }
 
     syncProjectNameDisplay();
+    renderProjectFlowStep();
+  };
+
+  var cycleProjectFlowStep = function (direction) {
+    var totalSteps = projectStepPanes.length || 7;
+    if (totalSteps < 2) {
+      return;
+    }
+    if (direction > 0) {
+      projectFlowStep = projectFlowStep >= totalSteps ? 1 : projectFlowStep + 1;
+    } else {
+      projectFlowStep = projectFlowStep <= 1 ? totalSteps : projectFlowStep - 1;
+    }
+    setProjectFlowError('');
     renderProjectFlowStep();
   };
 
@@ -2640,6 +2603,18 @@
     if (projectNameDisplay) {
       projectNameDisplay.addEventListener('click', function () {
         beginProjectNameEdit();
+      });
+    }
+
+    if (projectCyclePrev) {
+      projectCyclePrev.addEventListener('click', function () {
+        cycleProjectFlowStep(-1);
+      });
+    }
+
+    if (projectCycleNext) {
+      projectCycleNext.addEventListener('click', function () {
+        cycleProjectFlowStep(1);
       });
     }
 

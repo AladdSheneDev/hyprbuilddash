@@ -459,6 +459,7 @@ body {
   display: grid;
   gap: 1.25rem;
   max-width: 62rem;
+  position: relative;
 }
 
 .project-flow-intro {
@@ -473,7 +474,43 @@ body {
   margin: 0;
   display: grid;
   gap: 0.75rem;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.project-cycle-rail {
+  position: absolute;
+  top: 50%;
+  left: -1.9rem;
+  right: -1.9rem;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.cycle-rail-arrow {
+  pointer-events: auto;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(148, 163, 184, 0.2);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cycle-rail-arrow:hover,
+.cycle-rail-arrow:focus-visible {
+  border-color: rgba(34, 211, 238, 0.5);
+}
+
+.cycle-rail-arrow:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .project-flow-steps li {
@@ -1395,6 +1432,13 @@ th {
 
   .project-flow-steps {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .project-cycle-rail {
+    position: static;
+    transform: none;
+    margin-top: 0.2rem;
+    pointer-events: auto;
   }
 
   .domain-input-row {
