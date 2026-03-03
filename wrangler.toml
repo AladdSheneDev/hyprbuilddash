@@ -1,16 +1,6 @@
 name = "hyprbuilddash"
-main = "worker.js"
 compatibility_date = "2025-01-01"
-workers_dev = true
-
-# the `site` section tells Wrangler to upload the whole repository
-# as a Workers Site. The bucket path is relative to this file.
-[site]
-bucket = "./"
-
-# Pages integration: tells Wrangler which directory contains static
-# assets when deploying via `wrangler pages deploy`.
-pages_build_output_dir = "./"
+pages_build_output_dir = "."
 
 # Environment variables (example for Clerk publishable key)
 [env.production]
