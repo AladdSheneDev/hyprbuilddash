@@ -502,6 +502,29 @@ body {
 .project-step-pane {
   display: grid;
   gap: 0.9rem;
+  transition: opacity 0.25s ease;
+}
+.project-step-pane[hidden] {
+  opacity: 0;
+}
+.project-step-pane:not([hidden]) {
+  opacity: 1;
+}
+
+/* hide navigation elements during project wizard for cleaner look */
+body.new-project-mode .sidebar {
+  display: none;
+}
+body.new-project-mode .topbar {
+  display: none;
+}
+body.new-project-mode .main-wrap {
+  margin-left: 0;
+}
+body.new-project-mode .project-flow-card {
+  max-width: 48rem;
+  margin: 2rem auto;
+  padding: 2rem;
 }
 
 .project-name-shell {
@@ -555,8 +578,8 @@ body {
 
 .project-name-display {
   border: 1px solid var(--line);
-  background: rgba(248, 250, 252, 0.03);
-  color: #fff;
+  background: #fff; /* white placeholder box */
+  color: #111;
   border-radius: 0.65rem;
   padding: 0.56rem 0.7rem;
   text-align: left;
@@ -565,9 +588,25 @@ body {
   cursor: text;
 }
 
+.checkout-summary {
+  margin: 1rem 0;
+  padding: 0.7rem;
+  background: rgba(248, 250, 252, 0.05);
+  border-radius: 0.5rem;
+}
+
+.checkout-summary p {
+  margin: 0.3rem 0;
+}
+
 .project-name-display:hover,
 .project-name-display:focus-visible {
   border-color: rgba(34, 211, 238, 0.45);
+}
+
+.project-name-display.is-placeholder {
+  color: #6b7280;
+  font-style: italic;
 }
 
 .project-name-inline-input {

@@ -76,6 +76,13 @@
   var publishContinueArrow = document.getElementById('publish-continue-arrow');
   var projectCloseSaveButton = document.getElementById('project-close-save-button');
   var projectPublishStatus = document.getElementById('project-publish-status');
+  
+  // payment step DOM refs
+  var paymentProjectName = document.getElementById('payment-project-name');
+  var paymentDomain = document.getElementById('payment-domain');
+  var paymentDomainCost = document.getElementById('payment-domain-cost');
+  var paymentTotal = document.getElementById('payment-total');
+  var paymentButton = document.getElementById('payment-button');
   var useSubdomainCheckbox = document.getElementById('use-subdomain-checkbox');
   var subdomainFields = document.getElementById('subdomain-fields');
   var subdomainList = document.getElementById('subdomain-list');
@@ -141,6 +148,7 @@
     planSummary: '',
     planReady: false,
     chatHistory: [],
+    paid: false,              // whether user has completed payment
     buildCompleted: false,
     previewUrl: '',
     publishCompleted: false
@@ -837,18 +845,38 @@
       .replace(/^#/, '')
       .trim()
       .toLowerCase();
-    if (route === 'settings') {
+    if (route.startsWith('settings')) {
       return 'settings';
     }
-    if (route === 'new-project') {
+    if (route.startsWith('new-project')) {
       return 'new-project';
     }
     return 'overview';
   };
 
   var setCurrentView = function (route, syncHash) {
-    var nextView = route === 'settings' || route === 'new-project' ? route : 'overview';
+    var nextView = route === 'settings' || route.startsWith('new-project') ? 'new-project' : 'overview';
     currentView = nextView;
+
+    // when in new-project mode we hide the sidebar for a clean wizard experience
+    if (typeof document !== 'undefined' && document.body) {
+      if (nextView === 'new-project') {
+        document.body.classList.add('new-project-mode');
+      } else {
+        document.body.classList.remove('new-project-mode');
+      }
+    }
+
+    // if the hash is instructing a specific step, keep it
+    if (nextView === 'new-project') {
+      var parts = String(window.location.hash || '').replace(/^#/, '').split('/');
+      if (parts.length > 1 && parts[1].startsWith('step')) {
+        var stepNum = parseInt(parts[1].replace('step', ''), 10);
+        if (!isNaN(stepNum)) {
+          projectFlowStep = stepNum;
+        }
+      }
+    }
 
     var showOverview = nextView === 'overview';
     var showSettings = nextView === 'settings';
@@ -941,6 +969,7 @@
     var label = projectFlowState.projectName || getProjectNamePlaceholder();
     if (projectNameDisplay) {
       projectNameDisplay.textContent = label;
+      projectNameDisplay.classList.toggle('is-placeholder', !projectFlowState.projectName);
     }
     if (projectNameInput && !projectNameInput.value.trim()) {
       projectNameInput.value = label;
@@ -1585,6 +1614,38 @@
       projectPlanLoading.hidden = false;
       setInlineLoadingText(projectPlanLoading, 'Refining plan');
     }
+  };
+
+  // payment helpers
+  var updatePaymentSummary = function () {
+    if (paymentProjectName) paymentProjectName.textContent = projectFlowState.projectName || '';
+    if (paymentDomain) paymentDomain.textContent = projectFlowState.selectedDomain ? projectFlowState.selectedDomain.name : '';
+    if (paymentDomainCost) {
+      var cost = 0;
+      if (projectFlowState.selectedDomain && typeof projectFlowState.selectedDomain.price === 'number') {
+        cost = projectFlowState.selectedDomain.price;
+      }
+      paymentDomainCost.textContent = cost ? formatCurrency(cost) : '';
+    }
+    if (paymentTotal) {
+      var total = 0;
+      if (projectFlowState.selectedDomain && typeof projectFlowState.selectedDomain.price === 'number') {
+        total += projectFlowState.selectedDomain.price;
+      }
+      paymentTotal.textContent = formatCurrency(total);
+    }
+  };
+
+  var goToPaymentStep = function () {
+    if (projectBuildArrow) {
+      projectBuildArrow.disabled = true;
+    }
+    projectFlowStep = 5;
+    updatePaymentSummary();
+    renderProjectFlowStep();
+  };
+
+  var delay = function (durationMs) {
 
     var assistantReply = '';
     try {
@@ -1653,7 +1714,8 @@
   };
 
   var startProjectBuild = async function () {
-    projectFlowStep = 5;
+    // we've already paid if we reach here
+    projectFlowStep = 6; // build step moved due to payment
     projectFlowState.buildCompleted = false;
     resetBuildTasks();
     renderProjectFlowStep();
@@ -1822,9 +1884,15 @@
     }
     if (projectBuildArrow) {
       projectBuildArrow.disabled = !projectFlowState.planReady;
+      projectBuildArrow.setAttribute('aria-label', projectFlowState.paid ? 'Start building project' : 'Pay & Build');
     }
     if (buildPreviewArrow) {
       buildPreviewArrow.disabled = !projectFlowState.buildCompleted;
+    }
+
+    // update URL hash so each step looks like its own page
+    if (currentView === 'new-project') {
+      window.history.replaceState(null, '', '#new-project/step' + projectFlowStep);
     }
   };
 
@@ -1841,6 +1909,7 @@
       planSummary: '',
       planReady: false,
       chatHistory: [],
+      paid: false,
       buildCompleted: false,
       previewUrl: '',
       publishCompleted: false
@@ -2652,13 +2721,40 @@
 
     if (projectBuildArrow) {
       projectBuildArrow.addEventListener('click', function () {
-        void startProjectBuild();
+        if (!projectFlowState.paid) {
+          goToPaymentStep();
+        } else {
+          void startProjectBuild();
+        }
+      });
+    }
+
+    if (paymentButton) {
+      paymentButton.addEventListener('click', async function () {
+        // in a real app this would hit the backend/Stripe
+        if (!projectFlowState.projectId) {
+          setProjectFlowError('Unable to process payment, project not saved.');
+          return;
+        }
+        setProjectFlowError('');
+        paymentButton.disabled = true;
+        try {
+          // example stub - you could call /projects/:id/checkout
+          projectFlowState.paid = true;
+          await updateProjectRecord('paid');
+          // once paid, start building immediately
+          await startProjectBuild();
+        } catch (err) {
+          setProjectFlowError('Payment error. ' + (err.message || ''));          
+        } finally {
+          paymentButton.disabled = false;
+        }
       });
     }
 
     if (buildPreviewArrow) {
       buildPreviewArrow.addEventListener('click', function () {
-        projectFlowStep = 6;
+        projectFlowStep = 7; // publish
         renderProjectFlowStep();
       });
     }

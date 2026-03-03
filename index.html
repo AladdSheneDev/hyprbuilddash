@@ -290,8 +290,9 @@
                 <li data-step="2">2. Domain</li>
                 <li data-step="3">3. Prompt</li>
                 <li data-step="4">4. Plan</li>
-                <li data-step="5">5. Build</li>
-                <li data-step="6">6. Publish</li>
+                <li data-step="5">5. Payment</li>
+                <li data-step="6">6. Build</li>
+                <li data-step="7">7. Publish</li>
               </ol>
 
               <p id="project-flow-error" class="project-flow-error" role="alert" aria-live="polite"></p>
@@ -412,14 +413,36 @@
                   id="project-build-arrow"
                   type="button"
                   class="workflow-arrow workflow-arrow-color"
-                  aria-label="Start building project"
+                  aria-label="Proceed to payment"
                   disabled
                 >
                   →
                 </button>
               </div>
 
+              <!-- Payment step: shown after plan is ready and before building -->
               <div id="project-step-5" class="project-step-pane" hidden>
+                <h3 class="settings-subtitle">Checkout &amp; Payment</h3>
+                <p class="project-hint">Review your project details and pay to start the Hyprbuild.</p>
+                <div class="checkout-summary">
+                  <p>
+                    <strong>Project:</strong>
+                    <span id="payment-project-name"></span>
+                  </p>
+                  <p>
+                    <strong>Domain:</strong>
+                    <span id="payment-domain"></span>
+                    <span id="payment-domain-cost"></span>
+                  </p>
+                  <p>
+                    <strong>Total:</strong>
+                    <span id="payment-total"></span>
+                  </p>
+                </div>
+                <button id="payment-button" type="button" class="btn btn-primary">Pay &amp; Build</button>
+              </div>
+
+              <div id="project-step-6" class="project-step-pane" hidden>
                 <h3 class="settings-subtitle">Building Project</h3>
                 <p id="build-progress-label" class="project-plan-loading" role="status" aria-live="polite">
                   <span class="mini-spinner" aria-hidden="true"></span>
@@ -442,7 +465,7 @@
                 </button>
               </div>
 
-              <div id="project-step-6" class="project-step-pane" hidden>
+              <div id="project-step-7" class="project-step-pane" hidden>
                 <h3 class="settings-subtitle">Preview + Publishing</h3>
                 <p class="project-hint">Preview your site or go straight to publishing.</p>
                 <div class="project-publish-actions">
