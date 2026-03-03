@@ -1823,13 +1823,15 @@
     var isLastStep = projectFlowStep >= totalSteps;
     if (projectCyclePrev) {
       var hidePrev = totalSteps < 2 || isFirstStep;
-      projectCyclePrev.hidden = hidePrev;
       projectCyclePrev.disabled = hidePrev;
+      projectCyclePrev.style.visibility = hidePrev ? 'hidden' : 'visible';
+      projectCyclePrev.setAttribute('aria-hidden', hidePrev ? 'true' : 'false');
     }
     if (projectCycleNext) {
       var hideNext = totalSteps < 2 || isLastStep;
-      projectCycleNext.hidden = hideNext;
       projectCycleNext.disabled = hideNext;
+      projectCycleNext.style.visibility = hideNext ? 'hidden' : 'visible';
+      projectCycleNext.setAttribute('aria-hidden', hideNext ? 'true' : 'false');
     }
 
     // update URL hash so each step looks like its own page
