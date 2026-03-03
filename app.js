@@ -43,17 +43,44 @@
   var projectStepPanes = Array.from(document.querySelectorAll('.project-step-pane'));
   var planCards = Array.from(document.querySelectorAll('.plan-card[data-plan-key]'));
   var projectFlowError = document.getElementById('project-flow-error');
-  var projectNameInput = document.getElementById('project-name-input');
+  var projectNameInput = document.getElementById('project-name-inline-input');
+  var projectNameDisplay = document.getElementById('project-name-display');
+  var projectNameArrow = document.getElementById('project-name-arrow');
+  var projectNameSaveStatus = document.getElementById('project-name-save-status');
   var domainRootInput = document.getElementById('domain-root-input');
   var domainCheckButton = document.getElementById('domain-check-button');
+  var projectDomainArrow = document.getElementById('project-domain-arrow');
+  var presetDomainButtons = Array.from(document.querySelectorAll('[data-domain-preset]'));
   var domainResults = document.getElementById('domain-results');
   var selectedDomainLine = document.getElementById('selected-domain-line');
+  var websitePromptInput = document.getElementById('website-prompt-input');
+  var projectPlanArrow = document.getElementById('project-plan-arrow');
+  var projectAssetInput = document.getElementById('project-asset-input');
+  var projectAssetAddButton = document.getElementById('project-asset-add-button');
+  var projectAssetsList = document.getElementById('project-assets-list');
+  var projectPlanLoading = document.getElementById('project-plan-loading');
+  var projectPlanSummary = document.getElementById('project-plan-summary');
+  var projectPlanSummaryText = document.getElementById('project-plan-summary-text');
+  var projectPlanChat = document.getElementById('project-plan-chat');
+  var projectPlanChatLog = document.getElementById('project-plan-chat-log');
+  var projectPlanChatInput = document.getElementById('project-plan-chat-input');
+  var projectPlanChatSend = document.getElementById('project-plan-chat-send');
+  var projectBuildArrow = document.getElementById('project-build-arrow');
+  var buildProgressLabel = document.getElementById('build-progress-label');
+  var buildTaskItems = Array.from(document.querySelectorAll('#project-build-tasks [data-build-task]'));
+  var buildPreviewArrow = document.getElementById('build-preview-arrow');
+  var projectPreviewButton = document.getElementById('project-preview-button');
+  var projectPublishButton = document.getElementById('project-publish-button');
+  var projectPreviewWrap = document.getElementById('project-preview-wrap');
+  var projectPreviewFrame = document.getElementById('project-preview-frame');
+  var publishContinueArrow = document.getElementById('publish-continue-arrow');
+  var projectCloseSaveButton = document.getElementById('project-close-save-button');
+  var projectPublishStatus = document.getElementById('project-publish-status');
   var useSubdomainCheckbox = document.getElementById('use-subdomain-checkbox');
   var subdomainFields = document.getElementById('subdomain-fields');
   var subdomainList = document.getElementById('subdomain-list');
   var addSubdomainButton = document.getElementById('add-subdomain-button');
   var aiProjectIdInput = document.getElementById('ai-project-id-input');
-  var websitePromptInput = document.getElementById('website-prompt-input');
   var generationImagesList = document.getElementById('generation-images-list');
   var addGenerationImageButton = document.getElementById('add-generation-image-button');
   var projectBackButton = document.getElementById('project-back-button');
@@ -104,20 +131,19 @@
   var currentView = 'overview';
   var projectFlowStep = 1;
   var projectFlowState = {
-    planKey: '',
+    projectId: '',
     projectName: '',
+    nameSaved: false,
     domainRoot: '',
     selectedDomain: null,
-    useSubdomain: false,
-    subdomains: [],
+    promptAssets: [],
     prompt: '',
-    aiProjectId: ''
-  };
-
-  var PLAN_OPTIONS = {
-    starter: { label: 'Starter Site', price: 59 },
-    pro: { label: 'Pro Site', price: 99 },
-    business: { label: 'Business Site', price: 179 }
+    planSummary: '',
+    planReady: false,
+    chatHistory: [],
+    buildCompleted: false,
+    previewUrl: '',
+    publishCompleted: false
   };
 
   var DOMAIN_PRICE_MAP = {
@@ -179,28 +205,15 @@
   };
 
   var ensureProjectId = function () {
-    var manualId = aiProjectIdInput ? slugifyProjectId(aiProjectIdInput.value) : '';
-    if (manualId) {
-      projectFlowState.aiProjectId = manualId;
-      if (aiProjectIdInput) {
-        aiProjectIdInput.value = manualId;
-      }
-      return manualId;
+    if (projectFlowState.projectId) {
+      return projectFlowState.projectId;
     }
 
-    if (projectFlowState.aiProjectId) {
-      return projectFlowState.aiProjectId;
-    }
-
-    var domainSeed = projectFlowState.selectedDomain && projectFlowState.selectedDomain.name ? projectFlowState.selectedDomain.name : '';
     var nameSeed = projectFlowState.projectName || (projectNameInput ? projectNameInput.value.trim() : '');
-    var baseSeed = slugifyProjectId(domainSeed || nameSeed || 'hyprbuild-project');
+    var baseSeed = slugifyProjectId(nameSeed || 'hyprbuild-project');
     var derivedId = baseSeed || 'hyprbuild-project';
 
-    projectFlowState.aiProjectId = derivedId;
-    if (aiProjectIdInput && !aiProjectIdInput.value.trim()) {
-      aiProjectIdInput.value = derivedId;
-    }
+    projectFlowState.projectId = derivedId;
     return derivedId;
   };
 
@@ -911,13 +924,58 @@
     projectFlowError.textContent = message || '';
   };
 
-  var setPlanSelection = function (planKey) {
-    projectFlowState.planKey = planKey in PLAN_OPTIONS ? planKey : '';
-    planCards.forEach(function (card) {
-      var isSelected = card.getAttribute('data-plan-key') === projectFlowState.planKey;
-      card.classList.toggle('is-selected', isSelected);
-      card.setAttribute('aria-checked', isSelected ? 'true' : 'false');
-    });
+  var setProjectNameStatus = function (message, isError) {
+    if (!projectNameSaveStatus) {
+      return;
+    }
+    projectNameSaveStatus.textContent = message || '';
+    projectNameSaveStatus.style.color = isError ? '#fca5a5' : '';
+  };
+
+  var getProjectNamePlaceholder = function () {
+    var firstName = currentUser && typeof currentUser.firstName === 'string' ? currentUser.firstName.trim() : '';
+    return firstName ? firstName + "'s Hyprbuild project" : "Your Hyprbuild project";
+  };
+
+  var syncProjectNameDisplay = function () {
+    var label = projectFlowState.projectName || getProjectNamePlaceholder();
+    if (projectNameDisplay) {
+      projectNameDisplay.textContent = label;
+    }
+    if (projectNameInput && !projectNameInput.value.trim()) {
+      projectNameInput.value = label;
+    }
+  };
+
+  var beginProjectNameEdit = function () {
+    if (!projectNameInput || !projectNameDisplay) {
+      return;
+    }
+    var currentValue = projectFlowState.projectName || projectNameDisplay.textContent || getProjectNamePlaceholder();
+    projectNameInput.value = currentValue;
+    projectNameInput.hidden = false;
+    projectNameDisplay.hidden = true;
+    projectNameInput.focus();
+    projectNameInput.select();
+  };
+
+  var finishProjectNameEdit = function (cancelEdit) {
+    if (!projectNameInput || !projectNameDisplay) {
+      return '';
+    }
+    var nextValue = projectNameInput.value.trim();
+    projectNameInput.hidden = true;
+    projectNameDisplay.hidden = false;
+    if (cancelEdit) {
+      syncProjectNameDisplay();
+      return '';
+    }
+    if (!nextValue) {
+      syncProjectNameDisplay();
+      return '';
+    }
+    projectNameDisplay.textContent = nextValue;
+    return nextValue;
   };
 
   var setDomainSelectedLine = function () {
@@ -934,6 +992,18 @@
       return;
     }
     selectedDomainLine.textContent = 'No domain selected.';
+  };
+
+  var setInlineLoadingText = function (element, text) {
+    if (!element) {
+      return;
+    }
+    var label = element.querySelector('span:last-child');
+    if (label) {
+      label.textContent = text;
+      return;
+    }
+    element.textContent = text;
   };
 
   var buildDomainOptions = function (root) {
@@ -1045,188 +1115,698 @@
         if (!selectedOption || !selectedOption.available) {
           return;
         }
+        if (domainRootInput) {
+          domainRootInput.value = cleanDomainRoot(selectedOption.name);
+        }
+        projectFlowState.domainRoot = cleanDomainRoot(selectedOption.name);
         projectFlowState.selectedDomain = {
           name: selectedOption.name,
           price: selectedOption.price
         };
         renderDomainOptions(options);
         setDomainSelectedLine();
+        setProjectFlowError('');
       });
     });
   };
 
-  var syncSubdomainState = function () {
-    if (!subdomainList) {
-      return;
+  var extractProjectId = function (payload) {
+    if (!payload || typeof payload !== 'object') {
+      return '';
     }
-    var rows = Array.from(subdomainList.querySelectorAll('[data-subdomain-row]'));
-    projectFlowState.subdomains = rows
-      .map(function (row) {
-        var nameInput = row.querySelector('[data-subdomain-name]');
-        var purposeInput = row.querySelector('[data-subdomain-purpose]');
+    var data = payload.data && typeof payload.data === 'object' ? payload.data : {};
+    var project = payload.project && typeof payload.project === 'object' ? payload.project : {};
+    var nestedProject = data.project && typeof data.project === 'object' ? data.project : {};
+
+    var candidateId =
+      payload.projectId ||
+      payload.id ||
+      data.projectId ||
+      data.id ||
+      project.projectId ||
+      project.id ||
+      nestedProject.projectId ||
+      nestedProject.id;
+
+    return candidateId ? String(candidateId) : '';
+  };
+
+  var tryApiCandidates = async function (candidates) {
+    var lastError = null;
+    for (var index = 0; index < candidates.length; index += 1) {
+      var candidate = candidates[index];
+      try {
+        return await apiRequest(candidate.path, {
+          method: candidate.method || 'POST',
+          body: candidate.body
+        });
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError || new Error('Project API request failed.');
+  };
+
+  var buildProjectJsonSnapshot = function (stage, extra) {
+    var payload = {
+      stage: stage || 'draft',
+      projectName: projectFlowState.projectName || '',
+      projectId: projectFlowState.projectId || '',
+      domainRoot: projectFlowState.domainRoot || '',
+      selectedDomain: projectFlowState.selectedDomain ? projectFlowState.selectedDomain.name : '',
+      prompt: projectFlowState.prompt || '',
+      planSummary: projectFlowState.planSummary || '',
+      chatHistory: projectFlowState.chatHistory.slice(-20),
+      buildCompleted: !!projectFlowState.buildCompleted,
+      publishCompleted: !!projectFlowState.publishCompleted,
+      assets: projectFlowState.promptAssets.map(function (asset) {
         return {
-          name: cleanDomainRoot(nameInput ? nameInput.value : ''),
-          purpose: purposeInput ? purposeInput.value.trim() : ''
+          id: asset.id,
+          name: asset.name,
+          mimeType: asset.mimeType,
+          size: asset.size || 0,
+          kind: asset.kind
         };
-      })
-      .filter(function (entry) {
-        return entry.name || entry.purpose;
-      });
+      }),
+      updatedAt: new Date().toISOString()
+    };
+
+    if (extra && typeof extra === 'object') {
+      return Object.assign(payload, extra);
+    }
+    return payload;
   };
 
-  var createSubdomainRow = function (index, value) {
-    var row = document.createElement('div');
-    row.className = 'subdomain-row';
-    row.setAttribute('data-subdomain-row', 'true');
+  var createProjectRecord = async function (projectName) {
+    var snapshot = buildProjectJsonSnapshot('name_set');
+    var response = await tryApiCandidates([
+      {
+        path: '/projects',
+        method: 'POST',
+        body: {
+          name: projectName,
+          projectName: projectName,
+          projectJson: snapshot
+        }
+      },
+      {
+        path: '/projects/create',
+        method: 'POST',
+        body: {
+          name: projectName,
+          projectJson: snapshot
+        }
+      },
+      {
+        path: '/ai/projects',
+        method: 'POST',
+        body: {
+          name: projectName,
+          projectJson: snapshot
+        }
+      }
+    ]);
 
-    row.innerHTML =
-      '<div class="subdomain-row-header">' +
-      '<p class="subdomain-row-title">Subdomain ' +
-      (index + 1) +
-      '</p>' +
-      (index > 0
-        ? '<button type="button" class="btn btn-secondary btn-inline" data-subdomain-remove="true">Remove</button>'
-        : '') +
-      '</div>' +
-      '<div class="subdomain-inputs">' +
-      '<div><label class="field-label">Subdomain</label>' +
-      '<input class="field-input" type="text" maxlength="40" autocomplete="off" placeholder="app" data-subdomain-name="true" /></div>' +
-      '<div><label class="field-label">Purpose</label>' +
-      '<input class="field-input" type="text" maxlength="160" autocomplete="off" placeholder="Customer dashboard" data-subdomain-purpose="true" /></div>' +
-      '</div>';
-
-    var nameInput = row.querySelector('[data-subdomain-name]');
-    var purposeInput = row.querySelector('[data-subdomain-purpose]');
-    if (nameInput && value && value.name) {
-      nameInput.value = value.name;
+    var projectId = extractProjectId(response);
+    if (!projectId) {
+      throw new Error('Project was created but no backend project ID was returned.');
     }
-    if (purposeInput && value && value.purpose) {
-      purposeInput.value = value.purpose;
-    }
-
-    if (nameInput) {
-      nameInput.addEventListener('input', function () {
-        setProjectFlowError('');
-      });
-    }
-    if (purposeInput) {
-      purposeInput.addEventListener('input', function () {
-        setProjectFlowError('');
-      });
-    }
-
-    var removeButton = row.querySelector('[data-subdomain-remove]');
-    if (removeButton) {
-      removeButton.addEventListener('click', function () {
-        row.remove();
-        refreshSubdomainRowTitles();
-        syncSubdomainState();
-      });
-    }
-
-    return row;
+    projectFlowState.projectId = projectId;
+    projectFlowState.nameSaved = true;
+    return response;
   };
 
-  var refreshSubdomainRowTitles = function () {
-    if (!subdomainList) {
+  var updateProjectRecord = async function (stage, extra) {
+    if (!projectFlowState.projectId) {
+      return false;
+    }
+    var projectId = encodeURIComponent(projectFlowState.projectId);
+    var snapshot = buildProjectJsonSnapshot(stage, extra);
+    try {
+      await tryApiCandidates([
+        {
+          path: '/projects/' + projectId,
+          method: 'PATCH',
+          body: {
+            name: projectFlowState.projectName,
+            projectJson: snapshot
+          }
+        },
+        {
+          path: '/projects/' + projectId + '/project-json',
+          method: 'PUT',
+          body: {
+            projectJson: snapshot
+          }
+        },
+        {
+          path: '/projects/' + projectId + '/project.json',
+          method: 'PUT',
+          body: {
+            projectJson: snapshot
+          }
+        }
+      ]);
+      return true;
+    } catch (error) {
+      return false;
+    }
+  };
+
+  var saveProjectNameAndContinue = async function () {
+    var manualName = finishProjectNameEdit(false);
+    if (manualName) {
+      projectFlowState.projectName = manualName;
+    } else if (projectNameDisplay && projectNameDisplay.textContent.trim()) {
+      projectFlowState.projectName = projectNameDisplay.textContent.trim();
+    }
+
+    if (!projectFlowState.projectName) {
+      setProjectFlowError('Enter a project name first.');
+      setProjectNameStatus('Project name is required.', true);
+      beginProjectNameEdit();
       return;
     }
-    Array.from(subdomainList.querySelectorAll('[data-subdomain-row]')).forEach(function (row, index) {
-      var title = row.querySelector('.subdomain-row-title');
-      if (title) {
-        title.textContent = 'Subdomain ' + (index + 1);
+
+    setProjectNameStatus('Saving project name...', false);
+    setProjectFlowError('');
+    if (projectNameArrow) {
+      projectNameArrow.disabled = true;
+    }
+
+    try {
+      if (!projectFlowState.nameSaved || !projectFlowState.projectId) {
+        await createProjectRecord(projectFlowState.projectName);
+      } else {
+        await updateProjectRecord('name_updated');
       }
-      var remove = row.querySelector('[data-subdomain-remove]');
-      if (remove) {
-        remove.style.display = index === 0 ? 'none' : '';
+      setProjectNameStatus('Saved as "' + projectFlowState.projectName + '".', false);
+      projectFlowStep = 2;
+      renderProjectFlowStep();
+      pushActivity('Created project "' + projectFlowState.projectName + '".');
+    } catch (error) {
+      var message = error && error.message ? error.message : 'Could not save project name.';
+      setProjectFlowError(message);
+      setProjectNameStatus(message, true);
+    } finally {
+      if (projectNameArrow) {
+        projectNameArrow.disabled = false;
       }
+    }
+  };
+
+  var saveDomainAndContinue = async function () {
+    projectFlowState.domainRoot = cleanDomainRoot(domainRootInput ? domainRootInput.value : '');
+    if (!projectFlowState.domainRoot && projectFlowState.selectedDomain && projectFlowState.selectedDomain.name) {
+      projectFlowState.domainRoot = cleanDomainRoot(projectFlowState.selectedDomain.name);
+    }
+
+    if (!projectFlowState.domainRoot) {
+      setProjectFlowError('Enter a domain name or choose a preset domain.');
+      return;
+    }
+
+    if (!projectFlowState.selectedDomain) {
+      setProjectFlowError('Select a domain from pricing or choose a preset domain.');
+      return;
+    }
+
+    if (projectDomainArrow) {
+      projectDomainArrow.disabled = true;
+    }
+    setProjectFlowError('');
+
+    try {
+      await updateProjectRecord('domain_set');
+      projectFlowStep = 3;
+      renderProjectFlowStep();
+      pushActivity('Selected domain ' + projectFlowState.selectedDomain.name + '.');
+    } catch (error) {
+      var message = error && error.message ? error.message : 'Could not save domain selection.';
+      setProjectFlowError(message);
+    } finally {
+      if (projectDomainArrow) {
+        projectDomainArrow.disabled = false;
+      }
+    }
+  };
+
+  var renderPromptAssets = function () {
+    if (!projectAssetsList) {
+      return;
+    }
+    if (projectFlowState.promptAssets.length === 0) {
+      projectAssetsList.innerHTML = '<li>No files added yet.</li>';
+      return;
+    }
+    projectAssetsList.innerHTML = projectFlowState.promptAssets
+      .map(function (asset) {
+        var meta = asset.kind === 'image' ? 'Image' : 'Document';
+        return (
+          '<li>' +
+          '<span>' +
+          escapeHtml(asset.name) +
+          ' (' +
+          escapeHtml(meta) +
+          ')</span>' +
+          '<button type="button" class="project-assets-remove" data-remove-asset="' +
+          escapeHtml(asset.id) +
+          '" aria-label="Remove asset">×</button>' +
+          '</li>'
+        );
+      })
+      .join('');
+
+    Array.from(projectAssetsList.querySelectorAll('[data-remove-asset]')).forEach(function (button) {
+      button.addEventListener('click', function () {
+        var id = button.getAttribute('data-remove-asset') || '';
+        projectFlowState.promptAssets = projectFlowState.promptAssets.filter(function (asset) {
+          return asset.id !== id;
+        });
+        renderPromptAssets();
+      });
     });
   };
 
-  var renderSubdomainRows = function () {
-    if (!subdomainList) {
+  var addPromptAssetsFromFiles = function (files) {
+    if (!files || files.length === 0) {
       return;
     }
-    subdomainList.innerHTML = '';
-    var rows = projectFlowState.subdomains.length > 0 ? projectFlowState.subdomains : [{ name: '', purpose: '' }];
-    rows.forEach(function (entry, index) {
-      subdomainList.appendChild(createSubdomainRow(index, entry));
+    Array.from(files).forEach(function (file, index) {
+      var mimeType = file.type || '';
+      var kind = mimeType.startsWith('image/') ? 'image' : 'document';
+      projectFlowState.promptAssets.push({
+        id: String(Date.now()) + '-' + String(Math.floor(Math.random() * 1000)) + '-' + String(index),
+        name: file.name || 'asset',
+        mimeType: mimeType,
+        size: file.size || 0,
+        kind: kind,
+        file: file
+      });
     });
-    refreshSubdomainRowTitles();
+    renderPromptAssets();
   };
 
-  var updateSubdomainFields = function () {
-    var enabled = !!(useSubdomainCheckbox && useSubdomainCheckbox.checked);
-    projectFlowState.useSubdomain = enabled;
-
-    if (subdomainFields) {
-      subdomainFields.hidden = !enabled;
-    }
-
-    if (!enabled) {
-      projectFlowState.subdomains = [];
-      if (subdomainList) {
-        subdomainList.innerHTML = '';
+  var collectPromptAssetsPayload = async function () {
+    var images = [];
+    var documents = [];
+    for (var index = 0; index < projectFlowState.promptAssets.length; index += 1) {
+      var asset = projectFlowState.promptAssets[index];
+      if (!asset.file) {
+        continue;
       }
+      var dataUrl = await readFileAsDataUrl(asset.file);
+      var item = {
+        name: asset.name,
+        mimeType: asset.mimeType,
+        dataUrl: dataUrl
+      };
+      if (asset.kind === 'image') {
+        images.push(item);
+      } else {
+        documents.push(item);
+      }
+    }
+    return {
+      images: images,
+      documents: documents
+    };
+  };
+
+  var appendPlanChatMessage = function (role, message) {
+    if (!projectPlanChatLog || !message) {
+      return;
+    }
+    var li = document.createElement('li');
+    li.className = role === 'user' ? 'is-user' : 'is-assistant';
+    li.textContent = message;
+    projectPlanChatLog.appendChild(li);
+    projectPlanChatLog.scrollTop = projectPlanChatLog.scrollHeight;
+  };
+
+  var getPlanSummaryFromResponse = function (payload) {
+    if (!payload || typeof payload !== 'object') {
+      return 'Plan generated.';
+    }
+    if (typeof payload.planSummary === 'string' && payload.planSummary.trim()) {
+      return payload.planSummary.trim();
+    }
+    if (typeof payload.summary === 'string' && payload.summary.trim()) {
+      return payload.summary.trim();
+    }
+    if (payload.plan && typeof payload.plan === 'string' && payload.plan.trim()) {
+      return payload.plan.trim();
+    }
+    if (payload.plan && typeof payload.plan === 'object') {
+      return getPlannerSummary(payload.plan);
+    }
+    if (payload.planner) {
+      return getPlannerSummary(payload.planner);
+    }
+    if (typeof payload.message === 'string' && payload.message.trim()) {
+      return payload.message.trim();
+    }
+    return getPlannerSummary(payload);
+  };
+
+  var generateProjectPlan = async function () {
+    projectFlowState.prompt = websitePromptInput ? websitePromptInput.value.trim() : '';
+    if (projectFlowState.prompt.length < 16) {
+      setProjectFlowError('Add a more detailed prompt before generating the plan.');
+      return;
+    }
+    if (!projectFlowState.projectId) {
+      setProjectFlowError('Save your project name first.');
+      projectFlowStep = 1;
+      renderProjectFlowStep();
       return;
     }
 
-    renderSubdomainRows();
+    projectFlowStep = 4;
+    projectFlowState.planReady = false;
+    renderProjectFlowStep();
+    setProjectFlowError('');
+    if (projectPlanLoading) {
+      projectPlanLoading.hidden = false;
+      setInlineLoadingText(projectPlanLoading, 'Building plan');
+    }
+
+    if (projectPlanArrow) {
+      projectPlanArrow.disabled = true;
+    }
+
+    try {
+      var assets = await collectPromptAssetsPayload();
+      var payload = {
+        projectId: projectFlowState.projectId,
+        projectName: projectFlowState.projectName,
+        prompt: projectFlowState.prompt,
+        userRequest: projectFlowState.prompt,
+        domain: projectFlowState.selectedDomain ? projectFlowState.selectedDomain.name : '',
+        images: assets.images,
+        documents: assets.documents
+      };
+
+      var response = await tryApiCandidates([
+        {
+          path: '/ai/projects/plan',
+          method: 'POST',
+          body: payload
+        },
+        {
+          path: '/ai/projects/' + encodeURIComponent(projectFlowState.projectId) + '/plan',
+          method: 'POST',
+          body: payload
+        },
+        {
+          path: '/ai/projects/generate',
+          method: 'POST',
+          body: {
+            projectId: projectFlowState.projectId,
+            userRequest: projectFlowState.prompt,
+            images: assets.images
+          }
+        }
+      ]);
+
+      projectFlowState.planSummary = getPlanSummaryFromResponse(response);
+      projectFlowState.planReady = true;
+      projectFlowState.chatHistory = [
+        {
+          role: 'assistant',
+          content: projectFlowState.planSummary
+        }
+      ];
+
+      if (projectPlanSummaryText) {
+        projectPlanSummaryText.textContent = projectFlowState.planSummary;
+      }
+      if (projectPlanChatLog) {
+        projectPlanChatLog.innerHTML = '';
+      }
+      appendPlanChatMessage('assistant', projectFlowState.planSummary);
+      if (projectPlanLoading) {
+        projectPlanLoading.hidden = true;
+      }
+      await updateProjectRecord('plan_generated');
+      pushActivity('Plan generated for "' + projectFlowState.projectName + '".');
+    } catch (error) {
+      if (projectPlanLoading) {
+        projectPlanLoading.hidden = true;
+      }
+      var message = error && error.message ? error.message : 'Plan generation failed.';
+      setProjectFlowError(message);
+      projectFlowState.planReady = false;
+      projectFlowStep = 3;
+    } finally {
+      if (projectPlanArrow) {
+        projectPlanArrow.disabled = false;
+      }
+      renderProjectFlowStep();
+    }
   };
 
-  var updateCheckoutSummary = function () {
-    var projectId = ensureProjectId();
-    var selectedPlan = projectFlowState.planKey ? PLAN_OPTIONS[projectFlowState.planKey] : null;
-    var planPrice = selectedPlan ? selectedPlan.price : 0;
-    var domainPrice = projectFlowState.selectedDomain ? projectFlowState.selectedDomain.price : 0;
-    var total = planPrice + domainPrice;
-    var domainName = projectFlowState.selectedDomain ? projectFlowState.selectedDomain.name : projectFlowState.domainRoot;
-    var subdomains = projectFlowState.useSubdomain ? projectFlowState.subdomains : [];
-    var subdomainNames = subdomains
-      .filter(function (item) {
-        return item.name;
-      })
-      .map(function (item) {
-        return item.name + (domainName ? '.' + domainName : '');
-      });
-    var subdomainUses = subdomains
-      .filter(function (item) {
-        return item.purpose;
-      })
-      .map(function (item) {
-        return item.purpose;
-      });
+  var sendPlanChatMessage = async function () {
+    var message = projectPlanChatInput ? projectPlanChatInput.value.trim() : '';
+    if (!message) {
+      return;
+    }
 
-    if (checkoutPlan) {
-      checkoutPlan.textContent = selectedPlan ? selectedPlan.label + ' ' + formatCurrency(selectedPlan.price) : '--';
+    appendPlanChatMessage('user', message);
+    projectFlowState.chatHistory.push({ role: 'user', content: message });
+    if (projectPlanChatInput) {
+      projectPlanChatInput.value = '';
     }
-    if (checkoutProjectName) {
-      checkoutProjectName.textContent = projectFlowState.projectName || '--';
+
+    if (projectPlanChatSend) {
+      projectPlanChatSend.disabled = true;
     }
-    if (checkoutProjectId) {
-      checkoutProjectId.textContent = projectId || '--';
+    if (projectPlanLoading) {
+      projectPlanLoading.hidden = false;
+      setInlineLoadingText(projectPlanLoading, 'Refining plan');
     }
-    if (checkoutDomain) {
-      checkoutDomain.textContent = projectFlowState.selectedDomain ? projectFlowState.selectedDomain.name : '--';
+
+    var assistantReply = '';
+    try {
+      var response = await tryApiCandidates([
+        {
+          path: '/ai/projects/plan/chat',
+          method: 'POST',
+          body: {
+            projectId: projectFlowState.projectId,
+            message: message,
+            planSummary: projectFlowState.planSummary
+          }
+        },
+        {
+          path: '/ai/projects/' + encodeURIComponent(projectFlowState.projectId) + '/plan/chat',
+          method: 'POST',
+          body: {
+            message: message,
+            planSummary: projectFlowState.planSummary
+          }
+        }
+      ]);
+
+      assistantReply =
+        (response && (response.reply || response.message || response.planSummary || response.summary)) ||
+        'Plan updated. Continue refining or start the build.';
+    } catch (error) {
+      assistantReply = 'Plan updated. Continue refining or start the build.';
+    } finally {
+      if (projectPlanLoading) {
+        projectPlanLoading.hidden = true;
+      }
+      if (projectPlanChatSend) {
+        projectPlanChatSend.disabled = false;
+      }
     }
-    if (checkoutDomainCost) {
-      checkoutDomainCost.textContent = formatCurrency(domainPrice);
+
+    projectFlowState.planSummary = assistantReply;
+    projectFlowState.chatHistory.push({ role: 'assistant', content: assistantReply });
+    if (projectPlanSummaryText) {
+      projectPlanSummaryText.textContent = assistantReply;
     }
-    if (checkoutSubdomain) {
-      checkoutSubdomain.textContent = projectFlowState.useSubdomain ? subdomainNames.join(', ') || '--' : 'None';
+    appendPlanChatMessage('assistant', assistantReply);
+    await updateProjectRecord('plan_refined');
+  };
+
+  var delay = function (durationMs) {
+    return new Promise(function (resolve) {
+      window.setTimeout(resolve, durationMs);
+    });
+  };
+
+  var markBuildTaskComplete = function (taskKey) {
+    var item = buildTaskItems.find(function (entry) {
+      return entry.getAttribute('data-build-task') === taskKey;
+    });
+    if (item) {
+      item.classList.add('is-complete');
     }
-    if (checkoutSubdomainUse) {
-      checkoutSubdomainUse.textContent = projectFlowState.useSubdomain ? subdomainUses.join(' | ') || '--' : 'N/A';
+  };
+
+  var resetBuildTasks = function () {
+    buildTaskItems.forEach(function (item) {
+      item.classList.remove('is-complete');
+    });
+  };
+
+  var startProjectBuild = async function () {
+    projectFlowStep = 5;
+    projectFlowState.buildCompleted = false;
+    resetBuildTasks();
+    renderProjectFlowStep();
+    if (projectBuildArrow) {
+      projectBuildArrow.disabled = true;
     }
-    if (checkoutTotal) {
-      checkoutTotal.textContent = formatCurrency(total);
+    if (buildPreviewArrow) {
+      buildPreviewArrow.disabled = true;
     }
+    if (buildProgressLabel) {
+      setInlineLoadingText(buildProgressLabel, 'Building backend');
+    }
+
+    try {
+      await tryApiCandidates([
+        {
+          path: '/ai/projects/build',
+          method: 'POST',
+          body: {
+            projectId: projectFlowState.projectId,
+            prompt: projectFlowState.prompt,
+            planSummary: projectFlowState.planSummary
+          }
+        },
+        {
+          path: '/projects/' + encodeURIComponent(projectFlowState.projectId) + '/build',
+          method: 'POST',
+          body: {
+            prompt: projectFlowState.prompt,
+            planSummary: projectFlowState.planSummary
+          }
+        }
+      ]);
+    } catch (error) {
+    }
+
+    await delay(700);
+    markBuildTaskComplete('backend');
+    if (buildProgressLabel) {
+      setInlineLoadingText(buildProgressLabel, 'Building frontend');
+    }
+    await delay(700);
+    markBuildTaskComplete('frontend');
+    if (buildProgressLabel) {
+      setInlineLoadingText(buildProgressLabel, 'Running checks');
+    }
+    await delay(700);
+    markBuildTaskComplete('testing');
+    if (buildProgressLabel) {
+      setInlineLoadingText(buildProgressLabel, 'Preparing preview');
+    }
+    await delay(700);
+    markBuildTaskComplete('preview');
+
+    projectFlowState.buildCompleted = true;
+    if (buildPreviewArrow) {
+      buildPreviewArrow.disabled = false;
+    }
+    if (buildProgressLabel) {
+      setInlineLoadingText(buildProgressLabel, 'Build complete');
+    }
+    await updateProjectRecord('build_complete');
+    pushActivity('Build completed for "' + projectFlowState.projectName + '".');
+  };
+
+  var derivePreviewUrl = function () {
+    if (projectFlowState.previewUrl) {
+      return projectFlowState.previewUrl;
+    }
+    if (projectFlowState.selectedDomain && projectFlowState.selectedDomain.name) {
+      return 'https://' + projectFlowState.selectedDomain.name;
+    }
+    return 'https://hyprbuild.app';
+  };
+
+  var openProjectPreview = function () {
+    var previewUrl = derivePreviewUrl();
+    projectFlowState.previewUrl = previewUrl;
+    if (projectPreviewFrame) {
+      projectPreviewFrame.src = previewUrl;
+    }
+    if (projectPreviewWrap) {
+      projectPreviewWrap.hidden = false;
+    }
+    setProjectFlowError('');
+  };
+
+  var publishProject = async function () {
+    if (!projectFlowState.projectId) {
+      setProjectFlowError('Project ID is missing.');
+      return;
+    }
+    if (projectPublishButton) {
+      projectPublishButton.disabled = true;
+    }
+    if (publishContinueArrow) {
+      publishContinueArrow.disabled = true;
+    }
+    if (projectPublishStatus) {
+      projectPublishStatus.textContent = 'Publishing...';
+    }
+
+    try {
+      await tryApiCandidates([
+        {
+          path: '/projects/' + encodeURIComponent(projectFlowState.projectId) + '/publish',
+          method: 'POST',
+          body: {
+            publish: true
+          }
+        },
+        {
+          path: '/ai/projects/publish',
+          method: 'POST',
+          body: {
+            projectId: projectFlowState.projectId
+          }
+        }
+      ]);
+      projectFlowState.publishCompleted = true;
+      if (projectPublishStatus) {
+        projectPublishStatus.textContent = 'Project published. You can preview again or close and save.';
+      }
+      await updateProjectRecord('published');
+      pushActivity('Project "' + projectFlowState.projectName + '" published.');
+    } catch (error) {
+      var message = error && error.message ? error.message : 'Publishing failed.';
+      if (projectPublishStatus) {
+        projectPublishStatus.textContent = message;
+      }
+      setProjectFlowError(message);
+    } finally {
+      if (projectPublishButton) {
+        projectPublishButton.disabled = false;
+      }
+      if (publishContinueArrow) {
+        publishContinueArrow.disabled = false;
+      }
+    }
+  };
+
+  var closeAndSaveProject = async function () {
+    try {
+      await updateProjectRecord('saved');
+    } catch (error) {
+    }
+    setCurrentView('overview', true);
+    pushActivity('Saved and closed "' + (projectFlowState.projectName || 'project') + '".');
   };
 
   var renderProjectFlowStep = function () {
     projectStepPanes.forEach(function (pane, index) {
-      var isCurrent = index + 1 === projectFlowStep;
-      pane.hidden = !isCurrent;
+      pane.hidden = index + 1 !== projectFlowStep;
     });
 
     projectFlowSteps.forEach(function (item) {
@@ -1234,107 +1814,46 @@
       item.classList.toggle('is-active', itemStep === projectFlowStep);
     });
 
-    if (projectBackButton) {
-      projectBackButton.disabled = projectFlowStep === 1;
+    if (projectPlanSummary) {
+      projectPlanSummary.hidden = !projectFlowState.planReady;
     }
-    if (projectNextButton) {
-      projectNextButton.hidden = projectFlowStep === 5;
-      projectNextButton.textContent = 'Next';
+    if (projectPlanChat) {
+      projectPlanChat.hidden = !projectFlowState.planReady;
     }
-
-    if (projectFlowStep >= 4) {
-      ensureProjectId();
+    if (projectBuildArrow) {
+      projectBuildArrow.disabled = !projectFlowState.planReady;
     }
-
-    if (projectFlowStep === 5) {
-      updateCheckoutSummary();
+    if (buildPreviewArrow) {
+      buildPreviewArrow.disabled = !projectFlowState.buildCompleted;
     }
-  };
-
-  var validateProjectStep = function (step) {
-    if (step === 1) {
-      if (!projectFlowState.planKey) {
-        setProjectFlowError('Select a plan to continue.');
-        return false;
-      }
-    }
-
-    if (step === 2) {
-      projectFlowState.projectName = projectNameInput ? projectNameInput.value.trim() : '';
-      projectFlowState.domainRoot = cleanDomainRoot(domainRootInput ? domainRootInput.value : '');
-
-      if (!projectFlowState.projectName) {
-        setProjectFlowError('Enter a project name.');
-        return false;
-      }
-      if (!projectFlowState.domainRoot) {
-        setProjectFlowError('Enter a domain name and browse pricing.');
-        return false;
-      }
-      if (!projectFlowState.selectedDomain) {
-        setProjectFlowError('Select a domain from the pricing list.');
-        return false;
-      }
-    }
-
-    if (step === 3) {
-      updateSubdomainFields();
-      syncSubdomainState();
-      if (projectFlowState.useSubdomain) {
-        if (projectFlowState.subdomains.length === 0) {
-          setProjectFlowError('Add at least one subdomain.');
-          return false;
-        }
-        var missingName = projectFlowState.subdomains.find(function (item) {
-          return !item.name;
-        });
-        if (missingName) {
-          setProjectFlowError('Each subdomain needs a name.');
-          return false;
-        }
-        var missingPurpose = projectFlowState.subdomains.find(function (item) {
-          return !item.purpose;
-        });
-        if (missingPurpose) {
-          setProjectFlowError('Each subdomain needs a purpose.');
-          return false;
-        }
-      }
-    }
-
-    if (step === 4) {
-      projectFlowState.aiProjectId = ensureProjectId();
-      if (!projectFlowState.aiProjectId) {
-        setProjectFlowError('Project ID is required for AI generation.');
-        return false;
-      }
-      projectFlowState.prompt = websitePromptInput ? websitePromptInput.value.trim() : '';
-      if (projectFlowState.prompt.length < 20) {
-        setProjectFlowError('Add a more detailed website prompt (at least 20 characters).');
-        return false;
-      }
-    }
-
-    setProjectFlowError('');
-    return true;
   };
 
   var resetProjectFlow = function () {
     projectFlowStep = 1;
     projectFlowState = {
-      planKey: '',
+      projectId: '',
       projectName: '',
+      nameSaved: false,
       domainRoot: '',
       selectedDomain: null,
-      useSubdomain: false,
-      subdomains: [],
+      promptAssets: [],
       prompt: '',
-      aiProjectId: ''
+      planSummary: '',
+      planReady: false,
+      chatHistory: [],
+      buildCompleted: false,
+      previewUrl: '',
+      publishCompleted: false
     };
-    setPlanSelection('');
+
     setProjectFlowError('');
+    setProjectNameStatus('', false);
     if (projectNameInput) {
       projectNameInput.value = '';
+      projectNameInput.hidden = true;
+    }
+    if (projectNameDisplay) {
+      projectNameDisplay.hidden = false;
     }
     if (domainRootInput) {
       domainRootInput.value = '';
@@ -1343,24 +1862,50 @@
       domainResults.innerHTML = '';
     }
     setDomainSelectedLine();
-    if (useSubdomainCheckbox) {
-      useSubdomainCheckbox.checked = false;
-    }
-    if (subdomainFields) {
-      subdomainFields.hidden = true;
-    }
-    if (subdomainList) {
-      subdomainList.innerHTML = '';
-    }
     if (websitePromptInput) {
       websitePromptInput.value = '';
     }
-    if (aiProjectIdInput) {
-      aiProjectIdInput.value = '';
+    if (projectAssetInput) {
+      projectAssetInput.value = '';
     }
-    clearGenerationImages();
-    resetAiGenerationUi();
-    updateSubdomainFields();
+    renderPromptAssets();
+    if (projectPlanSummaryText) {
+      projectPlanSummaryText.textContent = 'Waiting for plan output.';
+    }
+    if (projectPlanSummary) {
+      projectPlanSummary.hidden = true;
+    }
+    if (projectPlanLoading) {
+      projectPlanLoading.hidden = true;
+      setInlineLoadingText(projectPlanLoading, 'Building plan');
+    }
+    if (projectPlanChat) {
+      projectPlanChat.hidden = true;
+    }
+    if (projectPlanChatLog) {
+      projectPlanChatLog.innerHTML = '<li class="is-assistant">Plan chat is ready.</li>';
+    }
+    if (projectPlanChatInput) {
+      projectPlanChatInput.value = '';
+    }
+    resetBuildTasks();
+    if (buildProgressLabel) {
+      setInlineLoadingText(buildProgressLabel, 'Preparing build pipeline');
+    }
+    if (buildPreviewArrow) {
+      buildPreviewArrow.disabled = true;
+    }
+    if (projectPreviewWrap) {
+      projectPreviewWrap.hidden = true;
+    }
+    if (projectPreviewFrame) {
+      projectPreviewFrame.src = '';
+    }
+    if (projectPublishStatus) {
+      projectPublishStatus.textContent = '';
+    }
+
+    syncProjectNameDisplay();
     renderProjectFlowStep();
   };
 
@@ -1815,8 +2360,8 @@
     var openNewProject = function () {
       resetProjectFlow();
       setCurrentView('new-project', true);
-      if (planCards.length > 0) {
-        planCards[0].focus();
+      if (projectNameDisplay) {
+        projectNameDisplay.focus();
       }
     };
 
@@ -1914,13 +2459,6 @@
       });
     }
 
-    planCards.forEach(function (card) {
-      card.addEventListener('click', function () {
-        setPlanSelection(card.getAttribute('data-plan-key') || '');
-        setProjectFlowError('');
-      });
-    });
-
     if (domainCheckButton) {
       domainCheckButton.addEventListener('click', async function () {
         var domainRoot = cleanDomainRoot(domainRootInput ? domainRootInput.value : '');
@@ -1999,97 +2537,157 @@
     if (domainRootInput) {
       domainRootInput.addEventListener('input', function () {
         var root = cleanDomainRoot(domainRootInput.value);
+        projectFlowState.domainRoot = root;
         if (projectFlowState.selectedDomain && !projectFlowState.selectedDomain.name.startsWith(root + '.')) {
           projectFlowState.selectedDomain = null;
           setDomainSelectedLine();
         }
       });
+      domainRootInput.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          if (domainCheckButton) {
+            domainCheckButton.click();
+          }
+        }
+      });
+    }
+
+    if (presetDomainButtons.length > 0) {
+      presetDomainButtons.forEach(function (button) {
+        button.addEventListener('click', function () {
+          var fqdn = button.getAttribute('data-domain-preset') || '';
+          var price = parseOptionalNumber(priceFromName(fqdn));
+          projectFlowState.selectedDomain = {
+            name: fqdn,
+            price: price === null ? 0 : price
+          };
+          projectFlowState.domainRoot = cleanDomainRoot(fqdn);
+          if (domainRootInput) {
+            domainRootInput.value = projectFlowState.domainRoot;
+          }
+          setDomainSelectedLine();
+          setProjectFlowError('');
+        });
+      });
+    }
+
+    if (projectNameDisplay) {
+      projectNameDisplay.addEventListener('click', function () {
+        beginProjectNameEdit();
+      });
     }
 
     if (projectNameInput) {
-      projectNameInput.addEventListener('input', function () {
-        if (!domainRootInput) {
+      projectNameInput.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          void saveProjectNameAndContinue();
           return;
         }
-        if (domainRootInput.value.trim()) {
-          return;
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          finishProjectNameEdit(true);
         }
-        domainRootInput.value = cleanDomainRoot(projectNameInput.value);
+      });
+      projectNameInput.addEventListener('blur', function () {
+        finishProjectNameEdit(true);
+      });
+    }
+
+    if (projectNameArrow) {
+      projectNameArrow.addEventListener('click', function () {
+        void saveProjectNameAndContinue();
+      });
+    }
+
+    if (projectDomainArrow) {
+      projectDomainArrow.addEventListener('click', function () {
+        void saveDomainAndContinue();
+      });
+    }
+
+    if (projectAssetAddButton && projectAssetInput) {
+      projectAssetAddButton.addEventListener('click', function () {
+        projectAssetInput.click();
+      });
+    }
+
+    if (projectAssetInput) {
+      projectAssetInput.addEventListener('change', function () {
+        addPromptAssetsFromFiles(projectAssetInput.files || []);
+        projectAssetInput.value = '';
       });
     }
 
     if (websitePromptInput) {
-      websitePromptInput.addEventListener('input', function () {
-        setAiGenerationFeedback('', '');
+      websitePromptInput.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter' && !event.shiftKey) {
+          event.preventDefault();
+          void generateProjectPlan();
+        }
       });
     }
 
-    if (aiProjectIdInput) {
-      aiProjectIdInput.addEventListener('input', function () {
-        projectFlowState.aiProjectId = slugifyProjectId(aiProjectIdInput.value);
-        setAiGenerationFeedback('', '');
-      });
-      aiProjectIdInput.addEventListener('blur', function () {
-        aiProjectIdInput.value = slugifyProjectId(aiProjectIdInput.value);
-        projectFlowState.aiProjectId = aiProjectIdInput.value;
+    if (projectPlanArrow) {
+      projectPlanArrow.addEventListener('click', function () {
+        void generateProjectPlan();
       });
     }
 
-    if (useSubdomainCheckbox) {
-      useSubdomainCheckbox.addEventListener('change', function () {
-        updateSubdomainFields();
-        setProjectFlowError('');
+    if (projectPlanChatSend) {
+      projectPlanChatSend.addEventListener('click', function () {
+        void sendPlanChatMessage();
       });
     }
 
-    if (addSubdomainButton) {
-      addSubdomainButton.addEventListener('click', function () {
-        if (!subdomainList) {
+    if (projectPlanChatInput) {
+      projectPlanChatInput.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          void sendPlanChatMessage();
+        }
+      });
+    }
+
+    if (projectBuildArrow) {
+      projectBuildArrow.addEventListener('click', function () {
+        void startProjectBuild();
+      });
+    }
+
+    if (buildPreviewArrow) {
+      buildPreviewArrow.addEventListener('click', function () {
+        projectFlowStep = 6;
+        renderProjectFlowStep();
+      });
+    }
+
+    if (projectPreviewButton) {
+      projectPreviewButton.addEventListener('click', function () {
+        openProjectPreview();
+      });
+    }
+
+    if (projectPublishButton) {
+      projectPublishButton.addEventListener('click', function () {
+        void publishProject();
+      });
+    }
+
+    if (publishContinueArrow) {
+      publishContinueArrow.addEventListener('click', function () {
+        if (projectFlowState.publishCompleted) {
+          openProjectPreview();
           return;
         }
-        var index = subdomainList.querySelectorAll('[data-subdomain-row]').length;
-        subdomainList.appendChild(createSubdomainRow(index, { name: '', purpose: '' }));
-        refreshSubdomainRowTitles();
+        void publishProject();
       });
     }
 
-    if (addGenerationImageButton) {
-      addGenerationImageButton.addEventListener('click', function () {
-        addGenerationImageRow();
-      });
-    }
-
-    if (projectBackButton) {
-      projectBackButton.addEventListener('click', function () {
-        if (projectFlowStep > 1) {
-          projectFlowStep -= 1;
-          setProjectFlowError('');
-          renderProjectFlowStep();
-        }
-      });
-    }
-
-    if (projectNextButton) {
-      projectNextButton.addEventListener('click', function () {
-        if (!validateProjectStep(projectFlowStep)) {
-          return;
-        }
-        if (projectFlowStep < 5) {
-          projectFlowStep += 1;
-          renderProjectFlowStep();
-        }
-      });
-    }
-
-    if (checkoutButton) {
-      checkoutButton.addEventListener('click', function () {
-        void runAiGeneration();
-      });
-    }
-
-    if (aiRetryButton) {
-      aiRetryButton.addEventListener('click', function () {
-        void runAiGeneration();
+    if (projectCloseSaveButton) {
+      projectCloseSaveButton.addEventListener('click', function () {
+        void closeAndSaveProject();
       });
     }
   };
@@ -2179,6 +2777,7 @@
 
       currentUser = meUser;
       syncProfileFields(meUser);
+      syncProjectNameDisplay();
 
       var users = [];
       var usedAdminSource = false;

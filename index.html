@@ -283,53 +283,43 @@
               <div class="card-head">
                 <h2 id="new-project-title">Create New Project</h2>
               </div>
-              <p class="project-flow-intro">Set your plan, domain, and build details before checkout.</p>
+              <p class="project-flow-intro">Name it, choose your domain, shape the plan, then build and publish.</p>
 
               <ol id="project-flow-steps" class="project-flow-steps" aria-label="Project setup steps">
-                <li class="is-active" data-step="1">1. Plan</li>
+                <li class="is-active" data-step="1">1. Name</li>
                 <li data-step="2">2. Domain</li>
-                <li data-step="3">3. Subdomain</li>
-                <li data-step="4">4. Prompt</li>
-                <li data-step="5">5. Checkout</li>
+                <li data-step="3">3. Prompt</li>
+                <li data-step="4">4. Plan</li>
+                <li data-step="5">5. Build</li>
+                <li data-step="6">6. Publish</li>
               </ol>
 
               <p id="project-flow-error" class="project-flow-error" role="alert" aria-live="polite"></p>
 
               <div id="project-step-1" class="project-step-pane">
-                <h3 class="settings-subtitle">Choose Plan</h3>
-                <div class="plan-grid" role="radiogroup" aria-label="Website plan">
-                  <button type="button" class="plan-card" data-plan-key="starter" role="radio" aria-checked="false">
-                    <p class="plan-name">Starter Site</p>
-                    <p class="plan-price">$59</p>
-                    <p class="plan-copy">Best for personal pages and simple launches.</p>
+                <h3 class="settings-subtitle">Project Name</h3>
+                <div class="project-name-shell">
+                  <button id="project-name-arrow" type="button" class="workflow-arrow workflow-arrow-grey" aria-label="Save project name">
+                    →
                   </button>
-                  <button type="button" class="plan-card" data-plan-key="pro" role="radio" aria-checked="false">
-                    <p class="plan-name">Pro Site</p>
-                    <p class="plan-price">$99</p>
-                    <p class="plan-copy">Ideal for small business websites that need polish.</p>
-                  </button>
-                  <button type="button" class="plan-card" data-plan-key="business" role="radio" aria-checked="false">
-                    <p class="plan-name">Business Site</p>
-                    <p class="plan-price">$179</p>
-                    <p class="plan-copy">Built for bigger projects with advanced refinement.</p>
+                  <button id="project-name-display" type="button" class="project-name-display" aria-label="Rename project">
+                    Your Hyprbuild project
                   </button>
                 </div>
+                <input
+                  id="project-name-inline-input"
+                  class="field-input project-name-inline-input"
+                  type="text"
+                  maxlength="120"
+                  autocomplete="off"
+                  hidden
+                />
+                <p class="project-hint">Click the name to rename it. Press Enter or the grey arrow to save.</p>
+                <p id="project-name-save-status" class="project-hint" role="status" aria-live="polite"></p>
               </div>
 
               <div id="project-step-2" class="project-step-pane" hidden>
-                <h3 class="settings-subtitle">Project + Domain</h3>
-
-                <label for="project-name-input" class="field-label">Project name</label>
-                <input
-                  id="project-name-input"
-                  class="field-input"
-                  type="text"
-                  maxlength="80"
-                  autocomplete="off"
-                  placeholder="My New Website"
-                  required
-                />
-
+                <h3 class="settings-subtitle">Domain</h3>
                 <label for="domain-root-input" class="field-label">Domain name</label>
                 <div class="domain-input-row">
                   <input
@@ -343,126 +333,132 @@
                   />
                   <button id="domain-check-button" type="button" class="btn btn-secondary">Browse Prices</button>
                 </div>
-
+                <p class="project-hint">Or choose a preset domain:</p>
+                <div id="preset-domain-list" class="preset-domain-list">
+                  <button type="button" class="btn btn-secondary btn-inline" data-domain-preset="launch-ready.app">launch-ready.app</button>
+                  <button type="button" class="btn btn-secondary btn-inline" data-domain-preset="myhyprsite.dev">myhyprsite.dev</button>
+                  <button type="button" class="btn btn-secondary btn-inline" data-domain-preset="builderhq.io">builderhq.io</button>
+                </div>
                 <div id="domain-results" class="domain-results" aria-live="polite"></div>
                 <p id="selected-domain-line" class="project-hint">No domain selected.</p>
+                <button id="project-domain-arrow" type="button" class="workflow-arrow workflow-arrow-grey" aria-label="Save domain and continue">
+                  →
+                </button>
               </div>
 
               <div id="project-step-3" class="project-step-pane" hidden>
-                <h3 class="settings-subtitle">Optional Subdomains</h3>
-
-                <label class="switch-row" for="use-subdomain-checkbox">
-                  <input id="use-subdomain-checkbox" type="checkbox" />
-                  <span>Use subdomains for this build</span>
-                </label>
-
-                <div id="subdomain-fields" class="subdomain-fields" hidden>
-                  <div id="subdomain-list" class="subdomain-list" aria-live="polite"></div>
-                  <button id="add-subdomain-button" type="button" class="btn btn-secondary btn-inline">
-                    Add another subdomain
-                  </button>
-                  <p class="project-hint">Each subdomain needs a purpose.</p>
-                </div>
-              </div>
-
-              <div id="project-step-4" class="project-step-pane" hidden>
-                <h3 class="settings-subtitle">Website Prompt</h3>
-                <label for="ai-project-id-input" class="field-label">Project ID</label>
-                <input
-                  id="ai-project-id-input"
-                  class="field-input"
-                  type="text"
-                  maxlength="120"
-                  autocomplete="off"
-                  placeholder="auto-generated-project-id"
-                />
+                <h3 class="settings-subtitle">Prompt + Assets</h3>
                 <label for="website-prompt-input" class="field-label">Describe what you want to build</label>
                 <textarea
                   id="website-prompt-input"
                   class="field-input"
                   rows="8"
-                  maxlength="2000"
-                  placeholder="Example: Build a modern SaaS marketing website for a cybersecurity startup with clear CTA sections, pricing, FAQs, and a trusted enterprise look."
+                  maxlength="3000"
+                  placeholder="Describe your website, brand style, pages, conversion goals, and key features."
                   required
                 ></textarea>
-                <div class="generation-images-wrap">
-                  <label class="field-label">Reference Images (Optional)</label>
-                  <div id="generation-images-list" class="generation-images-list"></div>
-                  <button id="add-generation-image-button" type="button" class="btn btn-secondary btn-inline">
-                    Add Image
+                <input
+                  id="project-asset-input"
+                  class="project-asset-input"
+                  type="file"
+                  accept="image/*,.pdf,.doc,.docx,.txt,.md"
+                  multiple
+                  hidden
+                />
+                <div class="project-assets-head">
+                  <p class="project-hint">Add images and docs</p>
+                  <button id="project-asset-add-button" type="button" class="asset-plus-button" aria-label="Add images or docs">
+                    +
                   </button>
                 </div>
-                <p class="project-hint">Be specific about pages, tone, visual direction, and conversion goals.</p>
+                <ul id="project-assets-list" class="project-assets-list">
+                  <li>No files added yet.</li>
+                </ul>
+                <button id="project-plan-arrow" type="button" class="workflow-arrow workflow-arrow-grey" aria-label="Build plan">
+                  →
+                </button>
+              </div>
+
+              <div id="project-step-4" class="project-step-pane" hidden>
+                <h3 class="settings-subtitle">Plan Workshop</h3>
+                <p id="project-plan-loading" class="project-plan-loading" role="status" aria-live="polite">
+                  <span class="mini-spinner" aria-hidden="true"></span>
+                  <span>Building plan</span>
+                </p>
+                <article id="project-plan-summary" class="project-plan-summary" hidden>
+                  <h4>Current Plan</h4>
+                  <p id="project-plan-summary-text" class="project-hint">Waiting for plan output.</p>
+                </article>
+                <section id="project-plan-chat" class="project-plan-chat" hidden>
+                  <h4>Talk to AI Until It Is Perfect</h4>
+                  <ul id="project-plan-chat-log" class="project-plan-chat-log">
+                    <li class="is-assistant">Plan chat is ready.</li>
+                  </ul>
+                  <div class="project-plan-chat-input-row">
+                    <input
+                      id="project-plan-chat-input"
+                      class="field-input"
+                      type="text"
+                      maxlength="500"
+                      autocomplete="off"
+                      placeholder="Refine the plan: e.g., add multi-tenant auth and a docs CMS."
+                    />
+                    <button id="project-plan-chat-send" type="button" class="workflow-arrow workflow-arrow-grey" aria-label="Send plan message">
+                      →
+                    </button>
+                  </div>
+                </section>
+                <button
+                  id="project-build-arrow"
+                  type="button"
+                  class="workflow-arrow workflow-arrow-color"
+                  aria-label="Start building project"
+                  disabled
+                >
+                  →
+                </button>
               </div>
 
               <div id="project-step-5" class="project-step-pane" hidden>
-                <h3 class="settings-subtitle">Checkout</h3>
-                <div class="checkout-grid">
-                  <div class="checkout-row"><span>Plan</span><span id="checkout-plan">--</span></div>
-                  <div class="checkout-row"><span>Project</span><span id="checkout-project-name">--</span></div>
-                  <div class="checkout-row"><span>AI Project ID</span><span id="checkout-project-id">--</span></div>
-                  <div class="checkout-row"><span>Domain</span><span id="checkout-domain">--</span></div>
-                  <div class="checkout-row"><span>Domain Cost</span><span id="checkout-domain-cost">$0</span></div>
-                  <div class="checkout-row"><span>Subdomain</span><span id="checkout-subdomain">None</span></div>
-                  <div class="checkout-row"><span>Subdomain Use</span><span id="checkout-subdomain-use">N/A</span></div>
-                  <div class="checkout-row checkout-total"><span>Total</span><span id="checkout-total">$0</span></div>
-                </div>
-                <div class="ai-generate-actions">
-                  <button id="checkout-button" type="button" class="btn btn-primary checkout-button">Generate with AI</button>
-                  <button id="ai-retry-button" type="button" class="btn btn-secondary btn-inline" hidden>Retry</button>
-                </div>
-                <p id="ai-generation-feedback" class="project-hint" role="status" aria-live="polite"></p>
-
-                <section id="ai-generation-results" class="ai-results" hidden>
-                  <article class="ai-result-card">
-                    <h4>Planner</h4>
-                    <p id="ai-planner-summary" class="project-hint">No planner output yet.</p>
-                  </article>
-
-                  <article class="ai-result-card">
-                    <h4>Backend</h4>
-                    <div class="ai-metric-list">
-                      <div><span>Contracts</span><span id="ai-backend-contracts">--</span></div>
-                      <div><span>Files</span><span id="ai-backend-files">--</span></div>
-                      <div><span>Refinement Cycles</span><span id="ai-refinement-cycles">--</span></div>
-                    </div>
-                  </article>
-
-                  <article class="ai-result-card">
-                    <h4>Pages</h4>
-                    <ul id="ai-pages-list" class="ai-list">
-                      <li>No pages generated yet.</li>
-                    </ul>
-                  </article>
-
-                  <article class="ai-result-card">
-                    <h4>Tester</h4>
-                    <div class="ai-metric-list">
-                      <div><span>Status</span><span id="ai-tester-status">--</span></div>
-                      <div><span>Score</span><span id="ai-tester-score">--</span></div>
-                    </div>
-                    <ul id="ai-tester-issues" class="ai-list">
-                      <li>No tester issues.</li>
-                    </ul>
-                  </article>
-
-                  <article class="ai-result-card">
-                    <h4>Usage</h4>
-                    <div class="ai-metric-list">
-                      <div><span>Total Calls</span><span id="ai-usage-total-calls">--</span></div>
-                      <div><span>Input Tokens</span><span id="ai-usage-input-tokens">--</span></div>
-                      <div><span>Output Tokens</span><span id="ai-usage-output-tokens">--</span></div>
-                    </div>
-                    <ul id="ai-usage-by-agent" class="ai-list">
-                      <li>No usage data yet.</li>
-                    </ul>
-                  </article>
-                </section>
+                <h3 class="settings-subtitle">Building Project</h3>
+                <p id="build-progress-label" class="project-plan-loading" role="status" aria-live="polite">
+                  <span class="mini-spinner" aria-hidden="true"></span>
+                  <span>Preparing build pipeline</span>
+                </p>
+                <ul id="project-build-tasks" class="project-build-tasks">
+                  <li data-build-task="backend">Building backend</li>
+                  <li data-build-task="frontend">Building frontend</li>
+                  <li data-build-task="testing">Running checks</li>
+                  <li data-build-task="preview">Preparing preview</li>
+                </ul>
+                <button
+                  id="build-preview-arrow"
+                  type="button"
+                  class="workflow-arrow workflow-arrow-color"
+                  aria-label="Open preview and publishing"
+                  disabled
+                >
+                  →
+                </button>
               </div>
 
-              <div class="project-actions">
-                <button id="project-back-button" type="button" class="btn btn-secondary">Back</button>
-                <button id="project-next-button" type="button" class="btn btn-primary">Next</button>
+              <div id="project-step-6" class="project-step-pane" hidden>
+                <h3 class="settings-subtitle">Preview + Publishing</h3>
+                <p class="project-hint">Preview your site or go straight to publishing.</p>
+                <div class="project-publish-actions">
+                  <button id="project-preview-button" type="button" class="btn btn-secondary">Preview</button>
+                  <button id="project-publish-button" type="button" class="btn btn-primary">Publish Now</button>
+                </div>
+                <div id="project-preview-wrap" class="project-preview-wrap" hidden>
+                  <iframe id="project-preview-frame" title="Project preview"></iframe>
+                </div>
+                <div class="project-publish-actions">
+                  <button id="publish-continue-arrow" type="button" class="workflow-arrow workflow-arrow-color" aria-label="Proceed">
+                    →
+                  </button>
+                  <button id="project-close-save-button" type="button" class="btn btn-secondary">Close & Save</button>
+                </div>
+                <p id="project-publish-status" class="project-hint" role="status" aria-live="polite"></p>
               </div>
             </article>
           </section>
