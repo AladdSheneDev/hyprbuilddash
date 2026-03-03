@@ -1,0 +1,17 @@
+name = "hyprbuilddash"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+workers_dev = true
+
+# the `site` section tells Wrangler to upload the whole repository
+# as a Workers Site. The bucket path is relative to this file.
+[site]
+bucket = "./"
+
+# You should fill in your Cloudflare account ID before deploying.
+# Example:
+# account_id = "53b69adf0ea369bc454c695ed692dbaa"
+
+# If you want to publish to a custom domain or zone, add `zone_id` and
+# a `route` entry (or configure it on the Cloudflare dashboard after
+# the first deploy).
