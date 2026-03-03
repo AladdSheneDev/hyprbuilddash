@@ -1819,11 +1819,17 @@
     if (buildPreviewArrow) {
       buildPreviewArrow.disabled = !projectFlowState.buildCompleted;
     }
+    var isFirstStep = projectFlowStep <= 1;
+    var isLastStep = projectFlowStep >= totalSteps;
     if (projectCyclePrev) {
-      projectCyclePrev.disabled = totalSteps < 2;
+      var hidePrev = totalSteps < 2 || isFirstStep;
+      projectCyclePrev.hidden = hidePrev;
+      projectCyclePrev.disabled = hidePrev;
     }
     if (projectCycleNext) {
-      projectCycleNext.disabled = totalSteps < 2;
+      var hideNext = totalSteps < 2 || isLastStep;
+      projectCycleNext.hidden = hideNext;
+      projectCycleNext.disabled = hideNext;
     }
 
     // update URL hash so each step looks like its own page
@@ -1920,9 +1926,15 @@
       return;
     }
     if (direction > 0) {
-      projectFlowStep = projectFlowStep >= totalSteps ? 1 : projectFlowStep + 1;
+      if (projectFlowStep >= totalSteps) {
+        return;
+      }
+      projectFlowStep += 1;
     } else {
-      projectFlowStep = projectFlowStep <= 1 ? totalSteps : projectFlowStep - 1;
+      if (projectFlowStep <= 1) {
+        return;
+      }
+      projectFlowStep -= 1;
     }
     setProjectFlowError('');
     renderProjectFlowStep();

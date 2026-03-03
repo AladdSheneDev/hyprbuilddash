@@ -475,34 +475,32 @@ body {
 }
 
 .project-flow-steps-wrap {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  min-width: 0;
+  position: relative;
 }
 
 .project-flow-steps {
   list-style: none;
-  padding: 0.1rem;
+  padding: 0;
   margin: 0;
-  display: flex;
-  flex: 1;
-  min-width: 0;
+  display: grid;
   gap: 0.65rem;
-  overflow-x: auto;
-  scrollbar-width: thin;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
 }
 
 .project-cycle-rail {
-  position: static;
+  position: absolute;
+  top: 50%;
+  left: -1.5rem;
+  right: -1.5rem;
+  transform: translateY(-50%);
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  pointer-events: auto;
-  flex: 0 0 auto;
+  justify-content: space-between;
+  pointer-events: none;
 }
 
 .cycle-rail-arrow {
+  pointer-events: auto;
   width: 2.25rem;
   height: 2.25rem;
   border-radius: 999px;
@@ -531,8 +529,6 @@ body {
   padding: 0.55rem 0.65rem;
   font-size: 0.78rem;
   min-height: 2.45rem;
-  min-width: 8.75rem;
-  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -569,7 +565,7 @@ body {
 .project-name-shell {
   display: grid;
   gap: 0.55rem;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: 1fr;
   align-items: stretch;
 }
 
@@ -1433,20 +1429,23 @@ th {
   }
 
   .project-flow-steps {
-    gap: 0.5rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .project-flow-steps li {
-    min-width: 8rem;
+    min-height: 2.25rem;
   }
 
   .project-flow-steps-wrap {
-    flex-direction: column;
-    align-items: stretch;
+    display: grid;
+    gap: 0.4rem;
   }
 
   .project-cycle-rail {
-    justify-content: flex-end;
+    position: static;
+    transform: none;
+    justify-content: space-between;
+    pointer-events: auto;
   }
 
   .domain-input-row {
