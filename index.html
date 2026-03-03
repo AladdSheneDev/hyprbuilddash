@@ -13,7 +13,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=20260222-2" />
+    <link rel="stylesheet" href="styles.css?v=20260303-1" />
   </head>
   <body>
     <a class="skip-link" href="#main-content">Skip to content</a>
@@ -285,19 +285,21 @@
               </div>
               <p class="project-flow-intro">Name it, choose your domain, shape the plan, then build and publish.</p>
 
-              <ol id="project-flow-steps" class="project-flow-steps" aria-label="Project setup steps">
-                <li class="is-active" data-step="1">1. Name</li>
-                <li data-step="2">2. Domain</li>
-                <li data-step="3">3. Prompt</li>
-                <li data-step="4">4. Plan</li>
-                <li data-step="5">5. Payment</li>
-                <li data-step="6">6. Build</li>
-                <li data-step="7">7. Publish</li>
-              </ol>
+              <div class="project-flow-steps-wrap">
+                <ol id="project-flow-steps" class="project-flow-steps" aria-label="Project setup steps">
+                  <li class="is-active" data-step="1">1. Name</li>
+                  <li data-step="2">2. Domain</li>
+                  <li data-step="3">3. Prompt</li>
+                  <li data-step="4">4. Plan</li>
+                  <li data-step="5">5. Payment</li>
+                  <li data-step="6">6. Build</li>
+                  <li data-step="7">7. Publish</li>
+                </ol>
 
-              <div class="project-cycle-rail" aria-label="Cycle through setup steps">
-                <button id="project-cycle-prev" type="button" class="cycle-rail-arrow" aria-label="Previous step">←</button>
-                <button id="project-cycle-next" type="button" class="cycle-rail-arrow" aria-label="Next step">→</button>
+                <div class="project-cycle-rail" aria-label="Cycle through setup steps">
+                  <button id="project-cycle-prev" type="button" class="cycle-rail-arrow" aria-label="Previous step">←</button>
+                  <button id="project-cycle-next" type="button" class="cycle-rail-arrow" aria-label="Next step">→</button>
+                </div>
               </div>
 
               <p id="project-flow-error" class="project-flow-error" role="alert" aria-live="polite"></p>
@@ -494,6 +496,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=20260224-1" defer></script>
+    <script src="app.js?v=20260303-1" defer></script>
   </body>
 </html>

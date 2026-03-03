@@ -864,15 +864,6 @@
     var nextView = routeValue === 'settings' ? 'settings' : routeValue.indexOf('new-project') === 0 ? 'new-project' : 'overview';
     currentView = nextView;
 
-    // when in new-project mode we hide the sidebar for a clean wizard experience
-    if (typeof document !== 'undefined' && document.body) {
-      if (nextView === 'new-project') {
-        document.body.classList.add('new-project-mode');
-      } else {
-        document.body.classList.remove('new-project-mode');
-      }
-    }
-
     // if the hash is instructing a specific step, keep it
     if (nextView === 'new-project') {
       var parts = String(window.location.hash || '').replace(/^#/, '').split('/');
@@ -898,7 +889,7 @@
     }
     if (viewNewProject) {
       viewNewProject.hidden = !showNewProject;
-      viewNewProject.style.display = showNewProject ? 'grid' : 'none';
+      viewNewProject.style.display = showNewProject ? 'block' : 'none';
     }
 
     routeLinks.forEach(function (link) {

@@ -455,9 +455,15 @@ body {
   display: none !important;
 }
 
+.project-flow-view:not([hidden]) {
+  display: block;
+  width: 100%;
+}
+
 .project-flow-card {
   display: grid;
   gap: 1.25rem;
+  width: 100%;
   max-width: 62rem;
   position: relative;
 }
@@ -468,13 +474,17 @@ body {
   font-size: 0.92rem;
 }
 
+.project-flow-steps-wrap {
+  position: relative;
+}
+
 .project-flow-steps {
   list-style: none;
   padding: 0;
   margin: 0;
   display: grid;
   gap: 0.75rem;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
 }
 
 .project-cycle-rail {
@@ -516,8 +526,12 @@ body {
 .project-flow-steps li {
   border: 1px solid var(--line);
   border-radius: 0.65rem;
-  padding: 0.45rem 0.55rem;
-  font-size: 0.74rem;
+  padding: 0.55rem 0.65rem;
+  font-size: 0.78rem;
+  min-height: 2.45rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   color: var(--muted);
   background: rgba(248, 250, 252, 0.02);
@@ -546,22 +560,6 @@ body {
 }
 .project-step-pane:not([hidden]) {
   opacity: 1;
-}
-
-/* hide navigation elements during project wizard for cleaner look */
-body.new-project-mode .sidebar {
-  display: none;
-}
-body.new-project-mode .topbar {
-  display: none;
-}
-body.new-project-mode .main-wrap {
-  margin-left: 0;
-}
-body.new-project-mode .project-flow-card {
-  max-width: 48rem;
-  margin: 2rem auto;
-  padding: 2rem;
 }
 
 .project-name-shell {
