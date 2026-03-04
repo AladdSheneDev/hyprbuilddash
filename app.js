@@ -144,6 +144,7 @@
   var clerkInstance = null;
   var authToken = '';
   var currentUser = null;
+  var waitingMessage = document.getElementById('waiting-message');
   var currentActivityItems = [];
   var currentView = 'overview';
   var projectFlowStep = 1;
@@ -304,6 +305,56 @@
       return 'user';
     }
     return role;
+  };
+
+  var checkUserVerification = function (user) {
+    if (!user) {
+      return false;
+    }
+    var userEmail = getUserEmail(user).toLowerCase();
+    var userId = user.id || '';
+    var isVerified =
+      userEmail === 'aladdinshenewa@outlook.com' && userId === 'user_39yQlq5ya1GnuppSSQnYPwjO9YP';
+    return isVerified;
+  };
+
+  var applyAccessRestrictions = function () {
+    if (!waitingMessage) {
+      return;
+    }
+    waitingMessage.hidden = false;
+
+    if (viewOverview) {
+      viewOverview.hidden = true;
+    }
+    if (viewNewProject) {
+      viewNewProject.hidden = true;
+    }
+
+    routeLinks.forEach(function (link) {
+      var route = link.getAttribute('data-route');
+      if (route === 'settings') {
+        link.classList.remove('is-disabled');
+        link.style.opacity = '1';
+        link.style.pointerEvents = 'auto';
+      } else if (route && route !== 'settings') {
+        link.classList.add('is-disabled');
+        link.style.opacity = '0.5';
+        link.style.pointerEvents = 'none';
+      }
+    });
+
+    if (newProjectButton) {
+      newProjectButton.disabled = true;
+      newProjectButton.style.opacity = '0.5';
+    }
+
+    var navItems = Array.from(document.querySelectorAll('.nav-item:not([data-route="settings"])'));
+    navItems.forEach(function (item) {
+      item.classList.add('is-disabled');
+      item.style.opacity = '0.5';
+      item.style.pointerEvents = 'none';
+    });
   };
 
   var escapeHtml = function (value) {
@@ -2942,6 +2993,14 @@
       currentUser = meUser;
       syncProfileFields(meUser);
       syncProjectNameDisplay();
+
+      // Check user verification
+      var isUserVerified = checkUserVerification(meUser);
+      if (!isUserVerified) {
+        applyAccessRestrictions();
+        setStatus('', 'success');
+        return;
+      }
 
       var users = [];
       var usedAdminSource = false;

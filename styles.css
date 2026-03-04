@@ -352,6 +352,42 @@ body {
   backdrop-filter: blur(8px);
 }
 
+.waiting-section:not([hidden]) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+}
+
+.waiting-card {
+  text-align: center;
+  max-width: 40rem;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: center;
+}
+
+.waiting-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--primary);
+  margin: 0;
+}
+
+.waiting-text {
+  font-size: 1.1rem;
+  color: var(--text);
+  margin: 0;
+}
+
+.waiting-footer {
+  font-size: 0.95rem;
+  color: var(--muted);
+  margin: 0;
+}
+
 .settings-view[hidden],
 #view-overview[hidden] {
   display: none !important;
