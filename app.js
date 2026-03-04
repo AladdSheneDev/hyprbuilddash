@@ -47,6 +47,7 @@
   var projectStepPanes = Array.from(document.querySelectorAll('.project-step-pane'));
   var planCards = Array.from(document.querySelectorAll('.plan-card[data-plan-key]'));
   var projectFlowError = document.getElementById('project-flow-error');
+  var projectFlowIntro = document.getElementById('project-flow-intro');
   var projectNameInput = document.getElementById('project-name-inline-input');
   var projectNameDisplay = document.getElementById('project-name-display');
   var projectNameArrow = document.getElementById('project-name-arrow');
@@ -1799,6 +1800,19 @@
     }
     if (projectFlowStep > totalSteps) {
       projectFlowStep = totalSteps;
+    }
+
+    if (projectFlowIntro) {
+      var stepIntroByNumber = {
+        1: 'For this first step, make a name for your project.',
+        2: 'Choose your domain for this project.',
+        3: 'Describe what you want to build and add images or docs.',
+        4: 'Review and refine the build plan with AI.',
+        5: 'Review payment before starting your build.',
+        6: 'Hyprbuild is building your backend and frontend.',
+        7: 'Preview your site and publish when ready.'
+      };
+      projectFlowIntro.textContent = stepIntroByNumber[projectFlowStep] || 'Continue your project setup.';
     }
 
     projectStepPanes.forEach(function (pane, index) {

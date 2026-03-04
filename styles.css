@@ -459,14 +459,16 @@ body {
   display: block;
   width: 100%;
   align-self: start;
+  min-height: 0;
 }
 
 .project-flow-card {
   display: grid;
-  gap: 1.25rem;
-  width: min(100%, 68rem);
-  max-width: 68rem;
+  gap: 1rem;
+  width: min(100%, 64rem);
+  max-width: 64rem;
   margin: 0 auto;
+  padding: 0.25rem 0;
   align-self: start;
   align-content: start;
   position: relative;
@@ -480,7 +482,7 @@ body {
 
 .project-flow-steps-wrap {
   position: relative;
-  padding-inline: 2.8rem;
+  padding-inline: 0;
 }
 
 .project-flow-steps {
@@ -489,14 +491,14 @@ body {
   margin: 0;
   display: grid;
   gap: 0.65rem;
-  grid-template-columns: repeat(7, minmax(7.5rem, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
 }
 
 .project-cycle-rail {
   position: absolute;
   top: 50%;
-  left: 0;
-  right: 0;
+  left: -2.45rem;
+  right: -2.45rem;
   transform: translateY(-50%);
   display: flex;
   align-items: center;
@@ -532,7 +534,7 @@ body {
   border: 1px solid var(--line);
   border-radius: 0.65rem;
   padding: 0.55rem 0.65rem;
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   min-height: 2.45rem;
   display: flex;
   align-items: center;
