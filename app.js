@@ -325,40 +325,30 @@
       console.log('WARNING: waiting message element not found');
       return;
     }
-    waitingMessage.hidden = false;
-    console.log('Waiting message shown');
-
+    
+    // Hide entire interface
+    if (sidebar) {
+      sidebar.style.display = 'none';
+    }
+    var header = document.querySelector('.topbar');
+    if (header) {
+      header.style.display = 'none';
+    }
     if (viewOverview) {
       viewOverview.hidden = true;
     }
     if (viewNewProject) {
       viewNewProject.hidden = true;
     }
-
-    routeLinks.forEach(function (link) {
-      var route = link.getAttribute('data-route');
-      if (route === 'settings') {
-        link.classList.remove('is-disabled');
-        link.style.opacity = '1';
-        link.style.pointerEvents = 'auto';
-      } else if (route && route !== 'settings') {
-        link.classList.add('is-disabled');
-        link.style.opacity = '0.5';
-        link.style.pointerEvents = 'none';
-      }
-    });
-
-    if (newProjectButton) {
-      newProjectButton.disabled = true;
-      newProjectButton.style.opacity = '0.5';
+    
+    // Show waiting message
+    waitingMessage.hidden = false;
+    var appShell = document.querySelector('.app-shell');
+    if (appShell) {
+      appShell.style.gridTemplateColumns = '1fr';
     }
-
-    var navItems = Array.from(document.querySelectorAll('.nav-item:not([data-route="settings"])'));
-    navItems.forEach(function (item) {
-      item.classList.add('is-disabled');
-      item.style.opacity = '0.5';
-      item.style.pointerEvents = 'none';
-    });
+    
+    console.log('Waiting message shown, interface hidden');
   };
 
   var escapeHtml = function (value) {
@@ -2961,6 +2951,7 @@
   };
 
   var boot = async function () {
+    console.log('Boot starting...');
     wireButtons();
     resetProjectFlow();
     updatePhotoFileNameLabel();
@@ -2990,6 +2981,8 @@
       var meResponse = await apiRequest('/me');
       var meUser = meResponse.user || meResponse.data || meResponse.result || null;
 
+      console.log('User loaded:', meUser);
+
       if (!meUser || !meUser.id) {
         throw new Error('No user payload returned from /api/me');
       }
@@ -3000,7 +2993,9 @@
 
       // Check user verification
       var isUserVerified = checkUserVerification(meUser);
+      console.log('User verified:', isUserVerified);
       if (!isUserVerified) {
+        console.log('Calling applyAccessRestrictions');
         applyAccessRestrictions();
         setStatus('', 'success');
         return;
@@ -3039,6 +3034,7 @@
 
       applySummary(meUser, users, health, usedAdminSource);
     } catch (error) {
+      console.error('Boot error:', error);
       var message = error && error.message ? error.message : 'Unknown dashboard error.';
       setStatus('API connection failed: ' + message, 'error');
       kpiProjects.textContent = '--';
@@ -3059,5 +3055,6 @@
     }
   };
 
+  console.log('About to call boot()');
   boot();
 })();
