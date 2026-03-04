@@ -13,7 +13,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=20260303-5" />
+    <link rel="stylesheet" href="styles.css?v=20260303-6" />
   </head>
   <body>
     <a class="skip-link" href="#main-content">Skip to content</a>
@@ -310,6 +310,9 @@
                   <button id="project-name-display" type="button" class="project-name-display" aria-label="Rename project">
                     Your Hyprbuild project
                   </button>
+                  <button id="project-name-set-button" type="button" class="project-name-set-button" aria-label="Set project name">
+                    Set
+                  </button>
                 </div>
                 <input
                   id="project-name-inline-input"
@@ -319,7 +322,7 @@
                   autocomplete="off"
                   hidden
                 />
-                <p class="project-hint">Click the name to rename it. Press Enter to save.</p>
+                <p class="project-hint">Click the name to rename it. Press Enter or Set to save.</p>
                 <p id="project-name-save-status" class="project-hint" role="status" aria-live="polite"></p>
               </div>
 
@@ -493,6 +496,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=20260303-5" defer></script>
+    <script src="app.js?v=20260303-6" defer></script>
   </body>
 </html>

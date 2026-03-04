@@ -50,7 +50,7 @@
   var projectFlowIntro = document.getElementById('project-flow-intro');
   var projectNameInput = document.getElementById('project-name-inline-input');
   var projectNameDisplay = document.getElementById('project-name-display');
-  var projectNameArrow = document.getElementById('project-name-arrow');
+  var projectNameSetButton = document.getElementById('project-name-set-button');
   var projectNameSaveStatus = document.getElementById('project-name-save-status');
   var domainRootInput = document.getElementById('domain-root-input');
   var domainCheckButton = document.getElementById('domain-check-button');
@@ -986,6 +986,9 @@
     projectNameInput.value = currentValue;
     projectNameInput.hidden = false;
     projectNameDisplay.hidden = true;
+    if (projectNameSetButton) {
+      projectNameSetButton.hidden = true;
+    }
     projectNameInput.focus();
     projectNameInput.select();
   };
@@ -997,6 +1000,9 @@
     var nextValue = projectNameInput.value.trim();
     projectNameInput.hidden = true;
     projectNameDisplay.hidden = false;
+    if (projectNameSetButton) {
+      projectNameSetButton.hidden = false;
+    }
     if (cancelEdit) {
       syncProjectNameDisplay();
       return '';
@@ -1262,46 +1268,92 @@
     return true;
   };
 
-  var saveProjectNameAndContinue = async function () {
+  var applyProjectNameFromFields = function () {
     var manualName = finishProjectNameEdit(false);
     if (manualName) {
       projectFlowState.projectName = manualName;
     } else if (projectNameDisplay && projectNameDisplay.textContent.trim()) {
       projectFlowState.projectName = projectNameDisplay.textContent.trim();
     }
+    return projectFlowState.projectName;
+  };
 
+  var persistProjectName = async function () {
+    applyProjectNameFromFields();
     if (!projectFlowState.projectName) {
       setProjectFlowError('Enter a project name first.');
       setProjectNameStatus('Project name is required.', true);
       beginProjectNameEdit();
-      return;
+      return false;
     }
 
+    var isCreate = !projectFlowState.nameSaved || !projectFlowState.projectId;
     setProjectNameStatus('Saving project name...', false);
     setProjectFlowError('');
-    if (projectNameArrow) {
-      projectNameArrow.disabled = true;
+    if (projectNameSetButton) {
+      projectNameSetButton.disabled = true;
     }
 
     try {
-      if (!projectFlowState.nameSaved || !projectFlowState.projectId) {
+      if (isCreate) {
         await createProjectRecord(projectFlowState.projectName);
       } else {
         await updateProjectRecord('name_updated');
       }
       setProjectNameStatus('Saved as "' + projectFlowState.projectName + '".', false);
-      projectFlowStep = 2;
-      renderProjectFlowStep();
-      pushActivity('Created project "' + projectFlowState.projectName + '".');
+      if (isCreate) {
+        pushActivity('Created project "' + projectFlowState.projectName + '".');
+      }
+      return true;
     } catch (error) {
       var message = error && error.message ? error.message : 'Could not save project name.';
       setProjectFlowError(message);
       setProjectNameStatus(message, true);
+      return false;
     } finally {
-      if (projectNameArrow) {
-        projectNameArrow.disabled = false;
+      if (projectNameSetButton) {
+        projectNameSetButton.disabled = false;
       }
     }
+  };
+
+  var saveProjectNameAndContinue = async function () {
+    var saved = await persistProjectName();
+    if (!saved) {
+      return false;
+    }
+    projectFlowStep = 2;
+    renderProjectFlowStep();
+    return true;
+  };
+
+  var navigateProjectFlowToStep = async function (targetStep) {
+    var totalSteps = projectStepPanes.length || 7;
+    var parsedTarget = Number(targetStep);
+    if (!parsedTarget || Number.isNaN(parsedTarget)) {
+      return;
+    }
+    var normalizedTarget = Math.min(totalSteps, Math.max(1, Math.round(parsedTarget)));
+    if (normalizedTarget === projectFlowStep) {
+      return;
+    }
+
+    if (projectFlowStep === 1 && normalizedTarget > 1) {
+      var nameNeedsSave =
+        !projectFlowState.nameSaved ||
+        !projectFlowState.projectId ||
+        (projectNameInput && !projectNameInput.hidden);
+      if (nameNeedsSave) {
+        var nameSaved = await persistProjectName();
+        if (!nameSaved) {
+          return;
+        }
+      }
+    }
+
+    projectFlowStep = normalizedTarget;
+    setProjectFlowError('');
+    renderProjectFlowStep();
   };
 
   var saveDomainAndContinue = async function () {
@@ -1886,6 +1938,10 @@
     if (projectNameDisplay) {
       projectNameDisplay.hidden = false;
     }
+    if (projectNameSetButton) {
+      projectNameSetButton.hidden = false;
+      projectNameSetButton.disabled = false;
+    }
     if (domainRootInput) {
       domainRootInput.value = '';
     }
@@ -1940,24 +1996,24 @@
     renderProjectFlowStep();
   };
 
-  var cycleProjectFlowStep = function (direction) {
+  var cycleProjectFlowStep = async function (direction) {
     var totalSteps = projectStepPanes.length || 7;
     if (totalSteps < 2) {
       return;
     }
+    var targetStep = projectFlowStep;
     if (direction > 0) {
       if (projectFlowStep >= totalSteps) {
         return;
       }
-      projectFlowStep += 1;
+      targetStep = projectFlowStep + 1;
     } else {
       if (projectFlowStep <= 1) {
         return;
       }
-      projectFlowStep -= 1;
+      targetStep = projectFlowStep - 1;
     }
-    setProjectFlowError('');
-    renderProjectFlowStep();
+    await navigateProjectFlowToStep(targetStep);
   };
 
   if (sidebar && menuToggle && overlay) {
@@ -2629,15 +2685,33 @@
       });
     }
 
+    if (projectFlowSteps.length > 0) {
+      projectFlowSteps.forEach(function (stepItem) {
+        stepItem.setAttribute('role', 'button');
+        stepItem.setAttribute('tabindex', '0');
+        stepItem.addEventListener('click', function () {
+          var targetStep = Number(stepItem.getAttribute('data-step') || 0);
+          void navigateProjectFlowToStep(targetStep);
+        });
+        stepItem.addEventListener('keydown', function (event) {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            var targetStep = Number(stepItem.getAttribute('data-step') || 0);
+            void navigateProjectFlowToStep(targetStep);
+          }
+        });
+      });
+    }
+
     if (projectCyclePrev) {
       projectCyclePrev.addEventListener('click', function () {
-        cycleProjectFlowStep(-1);
+        void cycleProjectFlowStep(-1);
       });
     }
 
     if (projectCycleNext) {
       projectCycleNext.addEventListener('click', function () {
-        cycleProjectFlowStep(1);
+        void cycleProjectFlowStep(1);
       });
     }
 
@@ -2658,9 +2732,9 @@
       });
     }
 
-    if (projectNameArrow) {
-      projectNameArrow.addEventListener('click', function () {
-        void saveProjectNameAndContinue();
+    if (projectNameSetButton) {
+      projectNameSetButton.addEventListener('click', function () {
+        void persistProjectName();
       });
     }
 
