@@ -315,14 +315,18 @@
     var userId = user.id || '';
     var isVerified =
       userEmail === 'aladdinshenewa@outlook.com' && userId === 'user_39yQlq5ya1GnuppSSQnYPwjO9YP';
+    console.log('Verification check - Email:', userEmail, 'User ID:', userId, 'Verified:', isVerified);
     return isVerified;
   };
 
   var applyAccessRestrictions = function () {
+    console.log('Applying access restrictions - waiting message element:', waitingMessage);
     if (!waitingMessage) {
+      console.log('WARNING: waiting message element not found');
       return;
     }
     waitingMessage.hidden = false;
+    console.log('Waiting message shown');
 
     if (viewOverview) {
       viewOverview.hidden = true;
