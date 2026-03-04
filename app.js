@@ -5,6 +5,7 @@
       : 'https://hyprbuild.app/api';
   var LOGIN_URL = 'https://hyprbuild.app/login.html?next=' + encodeURIComponent(window.location.href);
   var CLERK_PUBLISHABLE_KEY = 'pk_live_Y2xlcmsuaHlwcmJ1aWxkLmFwcCQ';
+  var STRIPE_PUBLISHABLE_KEY = 'pk_test_51T5sJMRyj5W9Y3yO8acP7tU26tt1TF6zZ5QAH7Fuv1pEvsRLKeiTc43MS5tR0WXeWGGodVg2EsW5ntnRQMHM2gR9009db1jgZD';
   /**
    * @typedef {import('./types/ai-generation').AiGenerationRequest} AiGenerationRequest
    * @typedef {import('./types/ai-generation').AiGenerationResponse} AiGenerationResponse
@@ -88,6 +89,9 @@
   var paymentDomainCost = document.getElementById('payment-domain-cost');
   var paymentTotal = document.getElementById('payment-total');
   var paymentButton = document.getElementById('payment-button');
+  if (paymentButton && STRIPE_PUBLISHABLE_KEY) {
+    paymentButton.setAttribute('data-stripe-publishable-key', STRIPE_PUBLISHABLE_KEY);
+  }
   var useSubdomainCheckbox = document.getElementById('use-subdomain-checkbox');
   var subdomainFields = document.getElementById('subdomain-fields');
   var subdomainList = document.getElementById('subdomain-list');
