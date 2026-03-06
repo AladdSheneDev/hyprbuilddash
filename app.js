@@ -159,12 +159,15 @@
     planSummary: '',
     planReady: false,
     chatHistory: [],
-    paid: false,              // whether user has completed payment
+    paid: false,              
     buildCompleted: false,
     previewUrl: '',
     publishCompleted: false
   };
-
+// i have to get ICANN certifcation.
+// So if your on the waitlist 
+// reading this
+// this is one of the reason why
   var DOMAIN_PRICE_MAP = {
     '.com': 14,
     '.ai': 79,
