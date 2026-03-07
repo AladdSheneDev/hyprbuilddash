@@ -28,8 +28,8 @@
         <nav class="nav-list" aria-label="Primary">
           <a href="#overview" class="nav-item is-active" data-route="overview" aria-current="page">Overview</a>
           <a href="#new-project" class="nav-item" data-route="new-project">New Project</a>
-          <a href="#" class="nav-item">Projects</a>
-          <a href="#" class="nav-item">Templates</a>
+          <a href="#projects" class="nav-item" data-route="projects">Projects</a>
+          <a href="#templates" class="nav-item" data-route="templates">Templates</a>
           <a href="#" class="nav-item">Deployments</a>
           <a href="#" class="nav-item">Analytics</a>
           <a href="#" class="nav-item">Billing</a>
@@ -498,6 +498,66 @@
                 </div>
                 <p id="project-publish-status" class="project-hint" role="status" aria-live="polite"></p>
               </div>
+            </article>
+          </section>
+
+          <!-- Projects List View -->
+          <section id="view-projects" class="projects-view" aria-labelledby="projects-title" hidden>
+            <article class="card projects-list-card">
+              <div class="card-head">
+                <h2 id="projects-title">My Projects</h2>
+                <button id="create-new-project-btn" type="button" class="btn btn-primary">New Project</button>
+              </div>
+              <p class="projects-intro">Manage your Hyprbuild projects.</p>
+              
+              <div id="projects-grid" class="projects-grid">
+                <div class="projects-loading">
+                  <span class="mini-spinner"></span>
+                  <span>Loading projects...</span>
+                </div>
+              </div>
+              
+              <div id="projects-empty" class="projects-empty" hidden>
+                <p>No projects yet.</p>
+                <button id="empty-create-btn" type="button" class="btn btn-primary">Create Your First Project</button>
+              </div>
+            </article>
+          </section>
+
+          <!-- Templates View (Placeholder) -->
+          <section id="view-templates" class="templates-view" aria-labelledby="templates-title" hidden>
+            <article class="card templates-card">
+              <div class="card-head">
+                <h2 id="templates-title">Templates</h2>
+              </div>
+              <p class="templates-intro">Start with a pre-built template.</p>
+              <div class="templates-grid">
+                <div class="template-card">
+                  <div class="template-preview"></div>
+                  <h3>Blank Project</h3>
+                  <p>Start from scratch</p>
+                </div>
+                <div class="template-card coming-soon">
+                  <div class="template-preview"></div>
+                  <h3>SaaS Dashboard</h3>
+                  <p>Coming soon</p>
+                </div>
+                <div class="template-card coming-soon">
+                  <div class="template-preview"></div>
+                  <h3>E-commerce</h3>
+                  <p>Coming soon</p>
+                </div>
+              </div>
+            </article>
+          </section>
+
+          <!-- Error Boundary View -->
+          <section id="view-error" class="error-view" aria-labelledby="error-title" hidden>
+            <article class="card error-card">
+              <h2 id="error-title">Something went wrong</h2>
+              <p id="error-message">An unexpected error occurred.</p>
+              <button id="error-retry-btn" type="button" class="btn btn-primary">Try Again</button>
+              <button id="error-home-btn" type="button" class="btn btn-secondary">Go to Dashboard</button>
             </article>
           </section>
         </main>
