@@ -709,10 +709,33 @@
     return images;
   };
 
-  var getSessionToken = async function () {
-    if (clerkInstance && clerkInstance.session && typeof clerkInstance.session.getToken === 'function') {
-      authToken = (await clerkInstance.session.getToken()) || authToken;
+  var getSessionToken = async function (forceRefresh) {
+    var shouldForceRefresh = !!forceRefresh;
+    if (!clerkInstance || !clerkInstance.session || typeof clerkInstance.session.getToken !== 'function') {
+      return authToken || '';
     }
+
+    var nextToken = '';
+    try {
+      nextToken = shouldForceRefresh
+        ? await clerkInstance.session.getToken({ skipCache: true })
+        : await clerkInstance.session.getToken();
+    } catch (tokenError) {
+      if (shouldForceRefresh) {
+        try {
+          nextToken = await clerkInstance.session.getToken();
+        } catch (fallbackError) {
+          nextToken = '';
+        }
+      }
+    }
+
+    if (nextToken) {
+      authToken = nextToken;
+    } else if (shouldForceRefresh) {
+      authToken = '';
+    }
+
     return authToken || '';
   };
 
@@ -780,59 +803,11 @@
     setAiGenerationFeedback('Running generation pipeline...', '');
 
     try {
-      var response = await window.fetch(API_BASE + '/ai/projects/generate', {
-        method: 'POST',
-        headers: {
-          Authorization: 'Bearer ' + token,
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
-        body: JSON.stringify(payload)
-      });
-
-      var responsePayload = null;
-      try {
-        responsePayload = await response.json();
-      } catch (parseError) {
-        responsePayload = null;
-      }
-
-      if (response.status === 401) {
-        setAiGenerationFeedback('Session expired. Redirecting to sign in.', 'error');
-        window.setTimeout(function () {
-          window.location.href = LOGIN_URL;
-        }, 400);
-        return;
-      }
-      if (response.status === 400) {
-        setAiGenerationFeedback(parseValidationMessage(responsePayload, 'Generation request is invalid.'), 'error');
-        return;
-      }
-      if (response.status === 429) {
-        setAiGenerationFeedback('Too many generation requests. Please retry in a moment.', 'error');
-        return;
-      }
-      if (response.status === 403) {
-        setAiGenerationFeedback(
-          parseValidationMessage(
-            responsePayload,
-            'Generation blocked. In test mode, projectId must match the backend test project name.'
-          ),
-          'error'
-        );
-        return;
-      }
-      if (response.status === 500 || response.status === 502) {
-        setAiGenerationFeedback('Backend generation failed. Please retry shortly.', 'error');
-        return;
-      }
-      if (!response.ok) {
-        setAiGenerationFeedback(parseValidationMessage(responsePayload, 'Generation request failed.'), 'error');
-        return;
-      }
-
       /** @type {AiGenerationResponse} */
-      var result = responsePayload || {};
+      var result = await apiRequest('/ai/projects/generate', {
+        method: 'POST',
+        body: payload
+      });
       renderAiGenerationResults(result);
       projectFlowState.aiProjectId = result.projectId || projectFlowState.aiProjectId;
 
@@ -853,6 +828,37 @@
 
       pushActivity('AI generation finished for ' + (projectFlowState.projectName || 'new project') + '.');
     } catch (error) {
+      var responseStatus = error && typeof error.status === 'number' ? error.status : 0;
+      var responsePayload = error && error.payload ? error.payload : null;
+      if (responseStatus === 401) {
+        setAiGenerationFeedback('Session expired. Redirecting to sign in.', 'error');
+        window.setTimeout(function () {
+          window.location.href = LOGIN_URL;
+        }, 400);
+        return;
+      }
+      if (responseStatus === 400) {
+        setAiGenerationFeedback(parseValidationMessage(responsePayload, 'Generation request is invalid.'), 'error');
+        return;
+      }
+      if (responseStatus === 429) {
+        setAiGenerationFeedback('Too many generation requests. Please retry in a moment.', 'error');
+        return;
+      }
+      if (responseStatus === 403) {
+        setAiGenerationFeedback(
+          parseValidationMessage(
+            responsePayload,
+            'Generation blocked. In test mode, projectId must match the backend test project name.'
+          ),
+          'error'
+        );
+        return;
+      }
+      if (responseStatus === 500 || responseStatus === 502) {
+        setAiGenerationFeedback('Backend generation failed. Please retry shortly.', 'error');
+        return;
+      }
       var networkError = error && error.message ? error.message : 'Generation failed.';
       setAiGenerationFeedback(networkError, 'error');
     } finally {
@@ -2236,31 +2242,49 @@
     var requestHeaders = options.headers ? Object.assign({}, options.headers) : {};
     var requestBody = options.body;
 
-    if (authToken) {
-      requestHeaders.Authorization = 'Bearer ' + authToken;
-    }
     if (requestBody && !(requestBody instanceof FormData)) {
       requestHeaders['Content-Type'] = 'application/json';
       requestBody = JSON.stringify(requestBody);
     }
 
-    var response = await window.fetch(API_BASE + path, {
-      method: method,
-      headers: requestHeaders,
-      credentials: 'include',
-      body: requestBody
-    });
+    var parseResponseBody = async function (response) {
+      try {
+        var rawText = await response.text();
+        return rawText ? JSON.parse(rawText) : null;
+      } catch (parseError) {
+        return null;
+      }
+    };
 
-    var body = null;
-    try {
-      var rawText = await response.text();
-      body = rawText ? JSON.parse(rawText) : null;
-    } catch (parseError) {
-      body = null;
+    var sendRequest = async function (forceRefreshToken) {
+      var outgoingHeaders = Object.assign({}, requestHeaders);
+      var token = await getSessionToken(forceRefreshToken);
+      if (token) {
+        outgoingHeaders.Authorization = 'Bearer ' + token;
+      } else {
+        delete outgoingHeaders.Authorization;
+      }
+      var response = await window.fetch(API_BASE + path, {
+        method: method,
+        headers: outgoingHeaders,
+        credentials: 'include',
+        body: requestBody
+      });
+      var body = await parseResponseBody(response);
+      return {
+        response: response,
+        body: body
+      };
+    };
+
+    var responseResult = await sendRequest(false);
+    if (responseResult.response.status === 401) {
+      responseResult = await sendRequest(true);
     }
 
-    if (!response.ok) {
+    if (!responseResult.response.ok) {
       var message = 'API request failed';
+      var body = responseResult.body;
       if (body && body.error) {
         if (typeof body.error === 'string') {
           message = body.error;
@@ -2270,15 +2294,16 @@
       } else if (body && typeof body.message === 'string') {
         message = body.message;
       } else {
-        message = response.status + ' ' + response.statusText;
+        message = responseResult.response.status + ' ' + responseResult.response.statusText;
       }
 
       var requestError = new Error(message);
-      requestError.status = response.status;
+      requestError.status = responseResult.response.status;
+      requestError.payload = body;
       throw requestError;
     }
 
-    return body || {};
+    return responseResult.body || {};
   };
 
   var applySummary = function (me, users, health, usedAdminSource) {
