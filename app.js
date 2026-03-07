@@ -326,7 +326,10 @@
       return;
     }
     
-    // Hide entire interface
+    // Hide entire interface - store reference to restore later
+    var appShell = document.querySelector('.app-shell');
+    var storedAppShell = appShell ? appShell.style.gridTemplateColumns : null;
+    
     if (sidebar) {
       sidebar.style.display = 'none';
     }
@@ -343,12 +346,37 @@
     
     // Show waiting message
     waitingMessage.hidden = false;
-    var appShell = document.querySelector('.app-shell');
     if (appShell) {
       appShell.style.gridTemplateColumns = '1fr';
     }
     
+    // Store for potential restoration
+    waitingMessage._originalGrid = storedAppShell;
     console.log('Waiting message shown, interface hidden');
+  };
+
+  // Restore UI from access restrictions (for when user becomes verified)
+  var restoreFromAccessRestrictions = function () {
+    if (!waitingMessage || waitingMessage.hidden) {
+      return;
+    }
+    
+    waitingMessage.hidden = true;
+    
+    if (sidebar) {
+      sidebar.style.display = '';
+    }
+    var header = document.querySelector('.topbar');
+    if (header) {
+      header.style.display = '';
+    }
+    
+    var appShell = document.querySelector('.app-shell');
+    if (appShell && waitingMessage._originalGrid) {
+      appShell.style.gridTemplateColumns = waitingMessage._originalGrid;
+    } else if (appShell) {
+      appShell.style.gridTemplateColumns = '280px 1fr';
+    }
   };
 
   var escapeHtml = function (value) {
@@ -2143,11 +2171,14 @@
 
     activityList.innerHTML = currentActivityItems
       .map(function (item) {
+        if (!item || !item.message) {
+          return '';
+        }
         return (
           '<li><p>' +
           escapeHtml(item.message) +
           '</p><span>' +
-          escapeHtml(item.time) +
+          escapeHtml(item.time || 'Just now') +
           '</span></li>'
         );
       })
@@ -2875,7 +2906,12 @@
           return;
         }
         setProjectFlowError('');
+        
+        // Save original text and show loading state
+        var originalText = paymentButton.textContent;
         paymentButton.disabled = true;
+        paymentButton.textContent = 'Processing...';
+        
         try {
           // example stub - you could call /projects/:id/checkout
           projectFlowState.paid = true;
@@ -2883,7 +2919,8 @@
           // once paid, start building immediately
           await startProjectBuild();
         } catch (err) {
-          setProjectFlowError('Payment error. ' + (err.message || ''));          
+          setProjectFlowError('Payment error. ' + (err.message || ''));
+          paymentButton.textContent = originalText;
         } finally {
           paymentButton.disabled = false;
         }
