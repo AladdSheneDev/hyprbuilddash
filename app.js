@@ -1597,7 +1597,7 @@
 
       var response = await tryApiCandidates([
         {
-          path: '/ai/projects/plan',
+          path: '/ai/projects/chat-plan',
           method: 'POST',
           body: payload
         }
@@ -1668,7 +1668,7 @@
         '\n\nRefinement request:\n' +
         message;
 
-      var response = await apiRequest('/ai/projects/plan', {
+      var response = await apiRequest('/ai/projects/chat-plan', {
         method: 'POST',
         body: {
           projectId: projectFlowState.projectId,
