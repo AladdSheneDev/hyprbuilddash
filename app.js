@@ -311,15 +311,12 @@
   };
 
   var checkUserVerification = function (user) {
-    if (!user) {
+    if (!user || !user.id) {
       return false;
     }
-    var userEmail = getUserEmail(user).toLowerCase();
-    var userId = user.id || '';
-    var isVerified =
-      userEmail === 'aladdinshenewa@outlook.com' && userId === 'user_39yQlq5ya1GnuppSSQnYPwjO9YP';
-    console.log('Verification check - Email:', userEmail, 'User ID:', userId, 'Verified:', isVerified);
-    return isVerified;
+
+    var role = normalizeRole(user.role);
+    return role === 'admin' || role === 'user';
   };
 
   var applyAccessRestrictions = function () {
