@@ -953,7 +953,14 @@
 
   var setCurrentView = function (route, syncHash) {
     var routeValue = String(route || '').toLowerCase();
-    var nextView = routeValue === 'settings' ? 'settings' : routeValue.indexOf('new-project') === 0 ? 'new-project' : 'overview';
+    var nextView =
+      routeValue === 'settings'
+        ? 'settings'
+        : routeValue.indexOf('new-project') === 0
+          ? 'new-project'
+          : routeValue === 'projects'
+            ? 'projects'
+            : 'overview';
     currentView = nextView;
 
     // if the hash is instructing a specific step, keep it
@@ -2357,13 +2364,15 @@
     }
 
     if (!rows || rows.length === 0) {
-      tableBody.innerHTML = '<tr data-status="draft"><td colspan="4">No API records available.</td></tr>';
+      tableBody.innerHTML = '<tr data-status="draft"><td colspan="4">No projects available.</td></tr>';
       return;
     }
 
     tableBody.innerHTML = rows
       .map(function (row) {
         var status = row.status === 'live' ? 'live' : 'draft';
+        var meta = row.meta || row.role || '';
+        var detail = row.detail || row.email || '';
         return (
           '<tr data-status="' +
           status +
@@ -2377,10 +2386,10 @@
           (status === 'live' ? 'Live' : 'Draft') +
           '</span></td>' +
           '<td>' +
-          escapeHtml(row.role || 'user') +
+          escapeHtml(meta || '--') +
           '</td>' +
           '<td>' +
-          escapeHtml(row.email || 'N/A') +
+          escapeHtml(detail || '--') +
           '</td>' +
           '</tr>'
         );
@@ -2568,7 +2577,7 @@
     return responseResult.body || {};
   };
 
-  var applySummary = function (me, users, health, usedAdminSource) {
+  var applySummary = function (me, users, health, usedAdminSource, projects) {
     var metadata = me.publicMetadata || {};
 
     if (profileName) {
@@ -2576,7 +2585,9 @@
     }
 
     var projectsCount = null;
-    if (usedAdminSource && Array.isArray(users)) {
+    if (Array.isArray(projects)) {
+      projectsCount = projects.length;
+    } else if (usedAdminSource && Array.isArray(users)) {
       projectsCount = users.length;
     } else if (hasOwn(metadata, 'activeProjects')) {
       projectsCount = parseOptionalNumber(metadata.activeProjects);
@@ -3208,8 +3219,26 @@
       return {
         name: getUserDisplayName(user),
         status: role === 'admin' ? 'live' : 'draft',
-        role: role,
-        email: getUserEmail(user)
+        meta: role,
+        detail: getUserEmail(user)
+      };
+    });
+  };
+
+  var buildRowsFromProjects = function (projects) {
+    return projects.map(function (project) {
+      var projectId = project.projectId || project.id || '';
+      var projectName = project.name || project.projectName || projectId || 'Untitled Project';
+      var statusRaw = String(project.status || project.stage || '').toLowerCase();
+      var status = statusRaw === 'live' || statusRaw === 'published' ? 'live' : 'draft';
+      var updatedAt =
+        project.updatedAt || (project.projectJson && project.projectJson.updatedAt) || project.createdAt || '';
+      var updatedLabel = updatedAt ? new Date(updatedAt).toLocaleDateString() : '—';
+      return {
+        name: projectName,
+        status: status,
+        meta: updatedLabel,
+        detail: projectId || '—'
       };
     });
   };
@@ -3303,6 +3332,16 @@
         return;
       }
 
+      var projects = [];
+      try {
+        var projectsResponse = await apiRequest('/projects', { method: 'GET' });
+        projects = Array.isArray(projectsResponse)
+          ? projectsResponse
+          : (projectsResponse.projects || projectsResponse.data || projectsResponse.result || []);
+      } catch (projectsError) {
+        projects = [];
+      }
+
       var users = [];
       var usedAdminSource = false;
       if (normalizeRole(meUser.role) === 'admin') {
@@ -3324,7 +3363,7 @@
         }
       }
 
-      setTableRows(buildRowsFromUsers(users));
+      setTableRows(buildRowsFromProjects(projects));
       setActivityItems(buildActivityFromUsers(users, meUser, usedAdminSource));
 
       var health = null;
@@ -3334,7 +3373,7 @@
         health = null;
       }
 
-      applySummary(meUser, users, health, usedAdminSource);
+      applySummary(meUser, users, health, usedAdminSource, projects);
     } catch (error) {
       console.error('Boot error:', error);
       var message = error && error.message ? error.message : 'Unknown dashboard error.';
