@@ -1,8 +1,10 @@
 (function () {
-  var API_BASE =
-    window.location.hostname === 'hyprbuild.app' || window.location.hostname === 'dash.hyprbuild.app'
-      ? window.location.origin + '/api'
-      : 'https://hyprbuild.app/api';
+  var API_BASE = (function () {
+    if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+      return window.location.origin + '/api';
+    }
+    return 'https://hyprbuild.app/api';
+  })();
   var LOGIN_URL = 'https://hyprbuild.app/login.html?next=' + encodeURIComponent(window.location.href);
   var CLERK_PUBLISHABLE_KEY = 'pk_live_Y2xlcmsuaHlwcmJ1aWxkLmFwcCQ';
   var STRIPE_PUBLISHABLE_KEY = 'pk_test_51T5sJMRyj5W9Y3yO8acP7tU26tt1TF6zZ5QAH7Fuv1pEvsRLKeiTc43MS5tR0WXeWGGodVg2EsW5ntnRQMHM2gR9009db1jgZD';
@@ -27,6 +29,7 @@
   var viewOverview = document.getElementById('view-overview');
   var viewSettings = document.getElementById('view-settings');
   var viewNewProject = document.getElementById('view-new-project');
+  var viewProjects = document.getElementById('view-projects');
   var settingsNameForm = document.getElementById('settings-name-form');
   var settingsPhotoForm = document.getElementById('settings-photo-form');
   var settingsEmailForm = document.getElementById('settings-email-form');
@@ -140,6 +143,8 @@
   var sidebarCreateProject = document.getElementById('sidebar-create-project');
   var newProjectButton = document.getElementById('new-project-button');
   var exportButton = document.getElementById('export-button');
+  var createNewProjectBtn = document.getElementById('create-new-project-btn');
+  var emptyCreateBtn = document.getElementById('empty-create-btn');
 
   var clerkInstance = null;
   var authToken = '';
@@ -940,6 +945,9 @@
     if (route.startsWith('new-project')) {
       return 'new-project';
     }
+    if (route.startsWith('projects')) {
+      return 'projects';
+    }
     return 'overview';
   };
 
@@ -962,6 +970,7 @@
     var showOverview = nextView === 'overview';
     var showSettings = nextView === 'settings';
     var showNewProject = nextView === 'new-project';
+    var showProjects = nextView === 'projects';
 
     if (viewOverview) {
       viewOverview.hidden = !showOverview;
@@ -974,6 +983,13 @@
     if (viewNewProject) {
       viewNewProject.hidden = !showNewProject;
       viewNewProject.style.display = showNewProject ? 'block' : 'none';
+    }
+    if (viewProjects) {
+      viewProjects.hidden = !showProjects;
+      viewProjects.style.display = showProjects ? 'block' : 'none';
+      if (showProjects && projectsGrid) {
+        void loadProjects();
+      }
     }
 
     routeLinks.forEach(function (link) {
@@ -988,7 +1004,7 @@
     });
 
     if (pageTitle) {
-      pageTitle.textContent = nextView === 'settings' ? 'Settings' : nextView === 'new-project' ? 'New Project' : 'Overview';
+      pageTitle.textContent = nextView === 'settings' ? 'Settings' : nextView === 'new-project' ? 'New Project' : nextView === 'projects' ? 'Projects' : 'Overview';
     }
     if (pageKicker) {
       pageKicker.textContent = 'Dashboard';
@@ -1345,6 +1361,221 @@
       }
     });
     return true;
+  };
+
+  var deleteProject = async function (projectId) {
+    if (!projectId) {
+      return false;
+    }
+    try {
+      await apiRequest('/projects/' + encodeURIComponent(projectId), {
+        method: 'DELETE'
+      });
+      pushActivity('Project deleted.');
+      return true;
+    } catch (error) {
+      var message = error && error.message ? error.message : 'Could not delete project.';
+      setStatus(message, 'error');
+      return false;
+    }
+  };
+
+  var projectsGrid = document.getElementById('projects-grid');
+  var projectsEmpty = document.getElementById('projects-empty');
+  var deleteModal = document.getElementById('delete-modal');
+  var deleteModalProjectName = document.getElementById('delete-modal-project-name');
+  var deleteModalConfirm = document.getElementById('delete-modal-confirm');
+  var deleteModalCancel = document.getElementById('delete-modal-cancel');
+  var deleteModalClose = document.getElementById('delete-modal-close');
+  var deleteModalError = document.getElementById('delete-modal-error');
+  var currentDeleteProjectId = null;
+  var currentDeleteProjectElement = null;
+
+  var loadProjects = async function () {
+    if (!projectsGrid) {
+      return;
+    }
+    try {
+      var response = await apiRequest('/projects', {
+        method: 'GET'
+      });
+      var projects = Array.isArray(response) ? response : (response.projects || response.data || []);
+      renderProjects(projects);
+    } catch (error) {
+      console.error('Failed to load projects:', error);
+      renderProjects([]);
+    }
+  };
+
+  var renderProjects = function (projects) {
+    if (!projectsGrid || !projectsEmpty) {
+      return;
+    }
+    if (!projects || projects.length === 0) {
+      projectsGrid.hidden = true;
+      projectsEmpty.hidden = false;
+      return;
+    }
+    projectsGrid.hidden = false;
+    projectsEmpty.hidden = true;
+    projectsGrid.innerHTML = projects
+      .map(function (project) {
+        var projectId = project.projectId || project.id || '';
+        var projectName = project.name || project.projectName || projectId || 'Untitled Project';
+        var status = project.status || project.stage || 'draft';
+        var statusLabel = status === 'live' || status === 'published' ? 'Live' : 'Draft';
+        var updatedAt = project.updatedAt ? new Date(project.updatedAt).toLocaleDateString() : '';
+        return (
+          '<div class="project-card" data-project-id="' +
+          escapeHtml(projectId) +
+          '">' +
+          '<div class="project-card-header">' +
+          '<h3 class="project-card-title">' +
+          escapeHtml(projectName) +
+          '</h3>' +
+          '<span class="badge ' +
+          (status === 'live' || status === 'published' ? 'live' : 'draft') +
+          '">' +
+          statusLabel +
+          '</span>' +
+          '</div>' +
+          '<div class="project-card-meta">' +
+          (updatedAt ? '<span class="project-card-date">Updated: ' + escapeHtml(updatedAt) + '</span>' : '') +
+          '</div>' +
+          '<div class="project-card-actions">' +
+          '<button type="button" class="btn btn-secondary btn-inline project-card-edit" data-project-id="' +
+          escapeHtml(projectId) +
+          '">Edit</button>' +
+          '<button type="button" class="btn btn-danger btn-inline project-card-delete" data-project-id="' +
+          escapeHtml(projectId) +
+          '" data-project-name="' +
+          escapeHtml(projectName) +
+          '">Delete</button>' +
+          '</div>' +
+          '</div>'
+        );
+      })
+      .join('');
+
+    // Attach event listeners to delete buttons
+    Array.from(projectsGrid.querySelectorAll('[data-project-id].project-card-delete')).forEach(function (button) {
+      button.addEventListener('click', function () {
+        var pid = button.getAttribute('data-project-id');
+        var pname = button.getAttribute('data-project-name');
+        openDeleteModal(pid, pname, button.closest('.project-card'));
+      });
+    });
+
+    // Attach event listeners to edit buttons
+    Array.from(projectsGrid.querySelectorAll('.project-card-edit')).forEach(function (button) {
+      button.addEventListener('click', function () {
+        var pid = button.getAttribute('data-project-id');
+        openProjectForEdit(pid);
+      });
+    });
+  };
+
+  var openDeleteModal = function (projectId, projectName, projectElement) {
+    currentDeleteProjectId = projectId;
+    currentDeleteProjectElement = projectElement;
+    if (deleteModalProjectName) {
+      deleteModalProjectName.textContent = projectName || projectId;
+    }
+    if (deleteModalError) {
+      deleteModalError.textContent = '';
+    }
+    if (deleteModal) {
+      deleteModal.hidden = false;
+    }
+  };
+
+  var closeDeleteModal = function () {
+    currentDeleteProjectId = null;
+    currentDeleteProjectElement = null;
+    if (deleteModal) {
+      deleteModal.hidden = true;
+    }
+  };
+
+  var confirmDeleteProject = async function () {
+    if (!currentDeleteProjectId) {
+      return;
+    }
+    if (deleteModalConfirm) {
+      deleteModalConfirm.disabled = true;
+      deleteModalConfirm.textContent = 'Deleting...';
+    }
+    if (deleteModalError) {
+      deleteModalError.textContent = '';
+    }
+    var success = await deleteProject(currentDeleteProjectId);
+    if (success) {
+      if (currentDeleteProjectElement) {
+        currentDeleteProjectElement.remove();
+      }
+      // Check if there are any projects left
+      var remainingProjects = projectsGrid ? projectsGrid.querySelectorAll('.project-card') : [];
+      if (remainingProjects.length === 0) {
+        if (projectsGrid) {
+          projectsGrid.hidden = true;
+        }
+        if (projectsEmpty) {
+          projectsEmpty.hidden = false;
+        }
+      }
+      closeDeleteModal();
+      // Reload to ensure consistency
+      loadProjects();
+    } else {
+      if (deleteModalError) {
+        deleteModalError.textContent = 'Failed to delete project. Please try again.';
+      }
+    }
+    if (deleteModalConfirm) {
+      deleteModalConfirm.disabled = false;
+      deleteModalConfirm.textContent = 'Delete Project';
+    }
+  };
+
+  var openProjectForEdit = function (projectId) {
+    // For now, just navigate to new-project with the project ID
+    // This could be extended to load the project details
+    resetProjectFlow();
+    setCurrentView('new-project', true);
+    projectFlowState.projectId = projectId;
+    projectFlowState.nameSaved = true;
+    pushActivity('Editing project: ' + projectId);
+  };
+
+  var setupDeleteModalEvents = function () {
+    if (deleteModalConfirm) {
+      deleteModalConfirm.addEventListener('click', function () {
+        void confirmDeleteProject();
+      });
+    }
+    if (deleteModalCancel) {
+      deleteModalCancel.addEventListener('click', function () {
+        closeDeleteModal();
+      });
+    }
+    if (deleteModalClose) {
+      deleteModalClose.addEventListener('click', function () {
+        closeDeleteModal();
+      });
+    }
+    if (deleteModal) {
+      deleteModal.addEventListener('click', function (event) {
+        if (event.target === deleteModal) {
+          closeDeleteModal();
+        }
+      });
+    }
+    // Close on escape key
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && deleteModal && !deleteModal.hidden) {
+        closeDeleteModal();
+      }
+    });
   };
 
   var applyProjectNameFromFields = function () {
@@ -2581,6 +2812,14 @@
       newProjectButton.addEventListener('click', openNewProject);
     }
 
+    if (createNewProjectBtn) {
+      createNewProjectBtn.addEventListener('click', openNewProject);
+    }
+
+    if (emptyCreateBtn) {
+      emptyCreateBtn.addEventListener('click', openNewProject);
+    }
+
     if (exportButton) {
       exportButton.addEventListener('click', function () {
         var rows = Array.from(document.querySelectorAll('#project-table-body tr:not([hidden])'));
@@ -3015,6 +3254,7 @@
   var boot = async function () {
     console.log('Boot starting...');
     wireButtons();
+    setupDeleteModalEvents();
     resetProjectFlow();
     updatePhotoFileNameLabel();
     if (!window.location.hash) {

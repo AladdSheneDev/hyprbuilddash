@@ -33,7 +33,7 @@
 
 ## Phase 2: AI Pipeline Enhancements
 - [ ] 7. Add streaming responses for generation endpoints (SSE)
-- [ ] 8. Implement progress callbacks for build status
+- [x] 8. Implement progress callbacks for build status
 - [ ] 9. Add generation cancellation support
 
 ## Phase 4: Storage & Projects
