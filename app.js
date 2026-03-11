@@ -149,6 +149,8 @@
   var clerkInstance = null;
   var authToken = '';
   var currentUser = null;
+  var isAuthReady = false;
+  var projectsRefreshTimer = null;
   var waitingMessage = document.getElementById('waiting-message');
   var currentActivityItems = [];
   var currentView = 'overview';
@@ -995,7 +997,11 @@
       viewProjects.hidden = !showProjects;
       viewProjects.style.display = showProjects ? 'block' : 'none';
       if (showProjects && projectsGrid) {
-        void loadProjects();
+        if (isAuthReady) {
+          void loadProjects();
+        } else {
+          renderProjectsLoading();
+        }
       }
     }
 
@@ -1398,9 +1404,29 @@
   var currentDeleteProjectId = null;
   var currentDeleteProjectElement = null;
 
-  var loadProjects = async function () {
+  var renderProjectsLoading = function () {
     if (!projectsGrid) {
       return;
+    }
+    projectsGrid.hidden = false;
+    projectsGrid.innerHTML =
+      '<div class="projects-loading"><span class="mini-spinner"></span><span>Loading projects...</span></div>';
+    if (projectsEmpty) {
+      projectsEmpty.hidden = true;
+    }
+  };
+
+  var loadProjects = async function (options) {
+    options = options || {};
+    if (!projectsGrid) {
+      return;
+    }
+    if (!isAuthReady) {
+      renderProjectsLoading();
+      return;
+    }
+    if (!options.skipLoading) {
+      renderProjectsLoading();
     }
     try {
       var response = await apiRequest('/projects', {
@@ -3463,6 +3489,7 @@
         window.location.href = LOGIN_URL;
         return;
       }
+      isAuthReady = true;
 
       var healthPromise = apiRequest('/health');
       var meResponse = await apiRequest('/me');
@@ -3520,6 +3547,9 @@
       }
 
       setTableRows(buildRowsFromProjects(projects));
+      if (projectsGrid && currentView === 'projects') {
+        renderProjects(projects);
+      }
       setActivityItems(buildActivityFromUsers(users, meUser, usedAdminSource));
 
       var health = null;
@@ -3530,6 +3560,14 @@
       }
 
       applySummary(meUser, users, health, usedAdminSource, projects);
+
+      if (projectsGrid && !projectsRefreshTimer) {
+        projectsRefreshTimer = window.setInterval(function () {
+          if (currentView === 'projects' && isAuthReady) {
+            void loadProjects();
+          }
+        }, 5 * 60 * 1000);
+      }
     } catch (error) {
       console.error('Boot error:', error);
       var message = error && error.message ? error.message : 'Unknown dashboard error.';
