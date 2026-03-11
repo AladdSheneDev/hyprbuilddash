@@ -1415,16 +1415,20 @@
   };
 
   var renderProjects = function (projects) {
-    if (!projectsGrid || !projectsEmpty) {
+    if (!projectsGrid) {
       return;
     }
     if (!projects || projects.length === 0) {
       projectsGrid.hidden = true;
-      projectsEmpty.hidden = false;
+      if (projectsEmpty) {
+        projectsEmpty.hidden = false;
+      }
       return;
     }
     projectsGrid.hidden = false;
-    projectsEmpty.hidden = true;
+    if (projectsEmpty) {
+      projectsEmpty.hidden = true;
+    }
     projectsGrid.innerHTML = projects
       .map(function (project) {
         var projectId = project.projectId || project.id || '';
@@ -1827,6 +1831,77 @@
     return getPlannerSummary(payload);
   };
 
+  var streamPlanResponse = async function (payload, onChunk) {
+    var response = await streamApiRequest('/ai/projects/chat-plan/stream', {
+      method: 'POST',
+      headers: {
+        Accept: 'text/event-stream'
+      },
+      body: payload
+    });
+
+    if (!response.body || typeof response.body.getReader !== 'function') {
+      throw new Error('Streaming not supported in this browser.');
+    }
+
+    var reader = response.body.getReader();
+    var decoder = new TextDecoder();
+    var buffer = '';
+    var fullText = '';
+    var done = false;
+
+    while (!done) {
+      var result = await reader.read();
+      if (result.done) {
+        break;
+      }
+      buffer += decoder.decode(result.value, { stream: true });
+      var boundaryIndex = buffer.indexOf('\n\n');
+      while (boundaryIndex !== -1) {
+        var event = buffer.slice(0, boundaryIndex);
+        buffer = buffer.slice(boundaryIndex + 2);
+        var lines = event.split('\n');
+        lines.forEach(function (line) {
+          var trimmed = line.trim();
+          if (!trimmed.startsWith('data:')) {
+            return;
+          }
+          var data = trimmed.replace(/^data:\s*/, '');
+          if (!data || data === '[DONE]') {
+            return;
+          }
+          var payloadObj = null;
+          try {
+            payloadObj = JSON.parse(data);
+          } catch (error) {
+            payloadObj = null;
+          }
+          if (!payloadObj) {
+            return;
+          }
+          if (payloadObj.type === 'error') {
+            throw new Error(payloadObj.message || 'Plan stream failed.');
+          }
+          if (payloadObj.type === 'chunk' && typeof payloadObj.text === 'string') {
+            fullText += payloadObj.text;
+            if (onChunk) {
+              onChunk(payloadObj.text, fullText);
+            }
+          }
+          if (payloadObj.type === 'done') {
+            if (typeof payloadObj.summary === 'string' && payloadObj.summary.trim()) {
+              fullText = payloadObj.summary;
+            }
+            done = true;
+          }
+        });
+        boundaryIndex = buffer.indexOf('\n\n');
+      }
+    }
+
+    return fullText.trim();
+  };
+
   var generateProjectPlan = async function () {
     projectFlowState.prompt = websitePromptInput ? websitePromptInput.value.trim() : '';
     if (projectFlowState.prompt.length < 16) {
@@ -1867,15 +1942,33 @@
         images: assets.images
       };
 
-      var response = await tryApiCandidates([
-        {
-          path: '/ai/projects/chat-plan',
-          method: 'POST',
-          body: payload
-        }
-      ]);
+      var streamedText = '';
+      var streamingMessageEl = null;
+      if (projectPlanChatLog) {
+        projectPlanChatLog.innerHTML = '';
+        streamingMessageEl = document.createElement('li');
+        streamingMessageEl.className = 'is-assistant';
+        projectPlanChatLog.appendChild(streamingMessageEl);
+      }
 
-      projectFlowState.planSummary = getPlanSummaryFromResponse(response);
+      var updateStreamingUi = function () {
+        if (projectPlanSummaryText) {
+          projectPlanSummaryText.textContent = streamedText || 'Building plan...';
+        }
+        if (streamingMessageEl) {
+          streamingMessageEl.textContent = streamedText || '...';
+          projectPlanChatLog.scrollTop = projectPlanChatLog.scrollHeight;
+        }
+      };
+
+      updateStreamingUi();
+
+      var finalPlan = await streamPlanResponse(payload, function (chunk, fullText) {
+        streamedText = fullText;
+        updateStreamingUi();
+      });
+
+      projectFlowState.planSummary = finalPlan || streamedText || 'Plan generated.';
       projectFlowState.planReady = true;
       projectFlowState.chatHistory = [
         {
@@ -1887,10 +1980,9 @@
       if (projectPlanSummaryText) {
         projectPlanSummaryText.textContent = projectFlowState.planSummary;
       }
-      if (projectPlanChatLog) {
-        projectPlanChatLog.innerHTML = '';
+      if (!streamingMessageEl) {
+        appendPlanChatMessage('assistant', projectFlowState.planSummary);
       }
-      appendPlanChatMessage('assistant', projectFlowState.planSummary);
       if (projectPlanLoading) {
         projectPlanLoading.hidden = true;
       }
@@ -1932,6 +2024,12 @@
       setInlineLoadingText(projectPlanLoading, 'Refining plan');
     }
     var assistantReply = '';
+    var streamingMessageEl = null;
+    if (projectPlanChatLog) {
+      streamingMessageEl = document.createElement('li');
+      streamingMessageEl.className = 'is-assistant';
+      projectPlanChatLog.appendChild(streamingMessageEl);
+    }
     try {
       var planRequest =
         (projectFlowState.prompt || '') +
@@ -1940,14 +2038,24 @@
         '\n\nRefinement request:\n' +
         message;
 
-      var response = await apiRequest('/ai/projects/chat-plan', {
-        method: 'POST',
-        body: {
+      var streamedText = '';
+      assistantReply = await streamPlanResponse(
+        {
           projectId: projectFlowState.projectId,
           userRequest: planRequest
+        },
+        function (chunk, fullText) {
+          streamedText = fullText;
+          if (streamingMessageEl) {
+            streamingMessageEl.textContent = streamedText || '...';
+            projectPlanChatLog.scrollTop = projectPlanChatLog.scrollHeight;
+          }
+          if (projectPlanSummaryText) {
+            projectPlanSummaryText.textContent = streamedText || '...';
+          }
         }
-      });
-      assistantReply = getPlanSummaryFromResponse(response) || 'Plan updated. Continue refining or start the build.';
+      );
+      assistantReply = assistantReply || streamedText || 'Plan updated. Continue refining or start the build.';
     } catch (error) {
       assistantReply = 'Plan updated. Continue refining or start the build.';
     } finally {
@@ -1964,7 +2072,11 @@
     if (projectPlanSummaryText) {
       projectPlanSummaryText.textContent = assistantReply;
     }
-    appendPlanChatMessage('assistant', assistantReply);
+    if (!streamingMessageEl) {
+      appendPlanChatMessage('assistant', assistantReply);
+    } else {
+      streamingMessageEl.textContent = assistantReply;
+    }
     try {
       await updateProjectRecord('plan_refined');
     } catch (error) {
@@ -2575,6 +2687,50 @@
     }
 
     return responseResult.body || {};
+  };
+
+  var streamApiRequest = async function (path, options) {
+    options = options || {};
+    var method = options.method || 'GET';
+    var requestHeaders = options.headers ? Object.assign({}, options.headers) : {};
+    var requestBody = options.body;
+
+    if (requestBody && !(requestBody instanceof FormData)) {
+      requestHeaders['Content-Type'] = 'application/json';
+      requestBody = JSON.stringify(requestBody);
+    }
+
+    var sendRequest = async function (forceRefreshToken) {
+      var outgoingHeaders = Object.assign({}, requestHeaders);
+      var token = await getSessionToken(forceRefreshToken);
+      if (token) {
+        outgoingHeaders.Authorization = 'Bearer ' + token;
+      } else {
+        delete outgoingHeaders.Authorization;
+      }
+      return window.fetch(API_BASE + path, {
+        method: method,
+        headers: outgoingHeaders,
+        credentials: 'include',
+        body: requestBody
+      });
+    };
+
+    var response = await sendRequest(false);
+    if (response.status === 401) {
+      response = await sendRequest(true);
+    }
+
+    if (!response.ok) {
+      var text = '';
+      try {
+        text = await response.text();
+      } catch (error) {
+      }
+      throw new Error(text || response.status + ' ' + response.statusText);
+    }
+
+    return response;
   };
 
   var applySummary = function (me, users, health, usedAdminSource, projects) {
