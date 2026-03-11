@@ -1941,6 +1941,15 @@
       return;
     }
 
+    var token = await getSessionToken();
+    if (!token) {
+      setProjectFlowError('Session expired. Redirecting to sign in.');
+      window.setTimeout(function () {
+        window.location.href = LOGIN_URL;
+      }, 400);
+      return;
+    }
+
     projectFlowStep = 4;
     projectFlowState.planReady = false;
     renderProjectFlowStep();
@@ -2018,8 +2027,21 @@
       if (projectPlanLoading) {
         projectPlanLoading.hidden = true;
       }
-      var message = error && error.message ? error.message : 'Plan generation failed.';
-      setProjectFlowError(message);
+      var responseStatus = error && typeof error.status === 'number' ? error.status : 0;
+      var responsePayload = error && error.payload ? error.payload : null;
+      if (responseStatus === 401) {
+        setProjectFlowError('Session expired. Redirecting to sign in.');
+        window.setTimeout(function () {
+          window.location.href = LOGIN_URL;
+        }, 400);
+      } else if (responseStatus === 400) {
+        setProjectFlowError(parseValidationMessage(responsePayload, 'Plan request is invalid.'));
+      } else if (responseStatus === 429) {
+        setProjectFlowError('Too many plan requests. Please retry in a moment.');
+      } else {
+        var message = error && error.message ? error.message : 'Plan generation failed.';
+        setProjectFlowError(message);
+      }
       projectFlowState.planReady = false;
       projectFlowStep = 3;
     } finally {
@@ -2033,6 +2055,15 @@
   var sendPlanChatMessage = async function () {
     var message = projectPlanChatInput ? projectPlanChatInput.value.trim() : '';
     if (!message) {
+      return;
+    }
+
+    var token = await getSessionToken();
+    if (!token) {
+      setProjectFlowError('Session expired. Redirecting to sign in.');
+      window.setTimeout(function () {
+        window.location.href = LOGIN_URL;
+      }, 400);
       return;
     }
 
@@ -2083,7 +2114,20 @@
       );
       assistantReply = assistantReply || streamedText || 'Plan updated. Continue refining or start the build.';
     } catch (error) {
-      assistantReply = 'Plan updated. Continue refining or start the build.';
+      var responseStatus = error && typeof error.status === 'number' ? error.status : 0;
+      var responsePayload = error && error.payload ? error.payload : null;
+      if (responseStatus === 401) {
+        assistantReply = 'Session expired. Redirecting to sign in.';
+        window.setTimeout(function () {
+          window.location.href = LOGIN_URL;
+        }, 400);
+      } else if (responseStatus === 400) {
+        assistantReply = parseValidationMessage(responsePayload, 'Plan update request is invalid.');
+      } else if (responseStatus === 429) {
+        assistantReply = 'Too many plan requests. Please retry in a moment.';
+      } else {
+        assistantReply = error && error.message ? error.message : 'Plan update failed. Please retry.';
+      }
     } finally {
       if (projectPlanLoading) {
         projectPlanLoading.hidden = true;
@@ -2726,6 +2770,22 @@
       requestBody = JSON.stringify(requestBody);
     }
 
+    var parseResponseBody = async function (response) {
+      var rawText = '';
+      try {
+        rawText = await response.text();
+      } catch (error) {
+      }
+      if (!rawText) {
+        return { rawText: '', json: null };
+      }
+      try {
+        return { rawText: rawText, json: JSON.parse(rawText) };
+      } catch (error) {
+        return { rawText: rawText, json: null };
+      }
+    };
+
     var sendRequest = async function (forceRefreshToken) {
       var outgoingHeaders = Object.assign({}, requestHeaders);
       var token = await getSessionToken(forceRefreshToken);
@@ -2748,12 +2808,22 @@
     }
 
     if (!response.ok) {
-      var text = '';
-      try {
-        text = await response.text();
-      } catch (error) {
+      var parsed = await parseResponseBody(response);
+      var body = parsed.json;
+      var message = parsed.rawText || response.status + ' ' + response.statusText;
+      if (body && body.error) {
+        if (typeof body.error === 'string') {
+          message = body.error;
+        } else if (typeof body.error.message === 'string') {
+          message = body.error.message;
+        }
+      } else if (body && typeof body.message === 'string') {
+        message = body.message;
       }
-      throw new Error(text || response.status + ' ' + response.statusText);
+      var requestError = new Error(message);
+      requestError.status = response.status;
+      requestError.payload = body;
+      throw requestError;
     }
 
     return response;
