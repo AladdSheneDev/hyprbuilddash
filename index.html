@@ -13,7 +13,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=20260310-1" />
+    <link rel="stylesheet" href="styles.css?v=20260312-1" />
   </head>
   <body>
     <a class="skip-link" href="#main-content">Skip to content</a>
@@ -522,6 +522,25 @@
                 <button id="empty-create-btn" type="button" class="btn btn-primary">Create Your First Project</button>
               </div>
             </article>
+
+            <article class="card trash-card">
+              <div class="card-head">
+                <h2 id="trash-title">Trash</h2>
+                <button id="trash-refresh-btn" type="button" class="btn btn-secondary btn-inline">Refresh</button>
+              </div>
+              <p class="projects-intro">Deleted projects stay here for 30 days. You can restore or delete them permanently now.</p>
+
+              <div id="trash-grid" class="projects-grid">
+                <div class="projects-loading">
+                  <span class="mini-spinner"></span>
+                  <span>Loading trash...</span>
+                </div>
+              </div>
+
+              <div id="trash-empty" class="projects-empty" hidden>
+                <p>Trash is empty.</p>
+              </div>
+            </article>
           </section>
 
           <!-- Templates View (Placeholder) -->
@@ -584,6 +603,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=20260311-5" defer></script>
+    <script src="app.js?v=20260312-2" defer></script>
   </body>
 </html>

@@ -1004,6 +1004,9 @@
         }
       }
     }
+    if (showOverview) {
+      void loadOverviewProjects();
+    }
 
     routeLinks.forEach(function (link) {
       var linkRoute = link.getAttribute('data-route') || '';
@@ -1393,8 +1396,45 @@
     }
   };
 
+  var deleteProjectPermanently = async function (projectId) {
+    if (!projectId) {
+      return false;
+    }
+    try {
+      await apiRequest('/projects/' + encodeURIComponent(projectId) + '/purge', {
+        method: 'DELETE'
+      });
+      pushActivity('Project permanently deleted.');
+      return true;
+    } catch (error) {
+      var message = error && error.message ? error.message : 'Could not permanently delete project.';
+      setStatus(message, 'error');
+      return false;
+    }
+  };
+
+  var restoreProject = async function (projectId) {
+    if (!projectId) {
+      return false;
+    }
+    try {
+      await apiRequest('/projects/' + encodeURIComponent(projectId) + '/restore', {
+        method: 'POST'
+      });
+      pushActivity('Project restored.');
+      return true;
+    } catch (error) {
+      var message = error && error.message ? error.message : 'Could not restore project.';
+      setStatus(message, 'error');
+      return false;
+    }
+  };
+
   var projectsGrid = document.getElementById('projects-grid');
   var projectsEmpty = document.getElementById('projects-empty');
+  var trashGrid = document.getElementById('trash-grid');
+  var trashEmpty = document.getElementById('trash-empty');
+  var trashRefreshButton = document.getElementById('trash-refresh-btn');
   var deleteModal = document.getElementById('delete-modal');
   var deleteModalProjectName = document.getElementById('delete-modal-project-name');
   var deleteModalConfirm = document.getElementById('delete-modal-confirm');
@@ -1416,6 +1456,49 @@
     }
   };
 
+  var renderOverviewLoading = function () {
+    if (!tableBody) {
+      return;
+    }
+    tableBody.innerHTML = '<tr data-status="draft"><td colspan="4">Loading projects...</td></tr>';
+  };
+
+  var renderTrashLoading = function () {
+    if (!trashGrid) {
+      return;
+    }
+    trashGrid.hidden = false;
+    trashGrid.innerHTML =
+      '<div class="projects-loading"><span class="mini-spinner"></span><span>Loading trash...</span></div>';
+    if (trashEmpty) {
+      trashEmpty.hidden = true;
+    }
+  };
+
+  var loadTrash = async function (options) {
+    options = options || {};
+    if (!trashGrid) {
+      return;
+    }
+    if (!isAuthReady) {
+      renderTrashLoading();
+      return;
+    }
+    if (!options.skipLoading) {
+      renderTrashLoading();
+    }
+    try {
+      var response = await apiRequest('/projects/trash', {
+        method: 'GET'
+      });
+      var projects = Array.isArray(response) ? response : (response.projects || response.data || []);
+      renderTrashProjects(projects);
+    } catch (error) {
+      console.error('Failed to load trash:', error);
+      renderTrashProjects([]);
+    }
+  };
+
   var loadProjects = async function (options) {
     options = options || {};
     if (!projectsGrid) {
@@ -1423,6 +1506,9 @@
     }
     if (!isAuthReady) {
       renderProjectsLoading();
+      if (trashGrid) {
+        renderTrashLoading();
+      }
       return;
     }
     if (!options.skipLoading) {
@@ -1434,9 +1520,38 @@
       });
       var projects = Array.isArray(response) ? response : (response.projects || response.data || []);
       renderProjects(projects);
+      setTableRows(buildRowsFromProjects(projects));
+      if (trashGrid) {
+        void loadTrash({ skipLoading: true });
+      }
     } catch (error) {
       console.error('Failed to load projects:', error);
       renderProjects([]);
+      setTableRows([]);
+      if (trashGrid) {
+        renderTrashProjects([]);
+      }
+    }
+  };
+
+  var loadOverviewProjects = async function () {
+    if (!tableBody) {
+      return;
+    }
+    if (!isAuthReady) {
+      renderOverviewLoading();
+      return;
+    }
+    renderOverviewLoading();
+    try {
+      var response = await apiRequest('/projects', {
+        method: 'GET'
+      });
+      var projects = Array.isArray(response) ? response : (response.projects || response.data || []);
+      setTableRows(buildRowsFromProjects(projects));
+    } catch (error) {
+      console.error('Failed to load overview projects:', error);
+      setTableRows([]);
     }
   };
 
@@ -1508,6 +1623,85 @@
       button.addEventListener('click', function () {
         var pid = button.getAttribute('data-project-id');
         openProjectForEdit(pid);
+      });
+    });
+  };
+
+  var renderTrashProjects = function (projects) {
+    if (!trashGrid) {
+      return;
+    }
+    if (!projects || projects.length === 0) {
+      trashGrid.hidden = true;
+      if (trashEmpty) {
+        trashEmpty.hidden = false;
+      }
+      return;
+    }
+
+    trashGrid.hidden = false;
+    if (trashEmpty) {
+      trashEmpty.hidden = true;
+    }
+
+    trashGrid.innerHTML = projects
+      .map(function (project) {
+        var projectId = project.projectId || project.id || '';
+        var projectName = project.name || project.projectName || projectId || 'Untitled Project';
+        var deletedAt = project.deletedAt ? new Date(project.deletedAt).toLocaleDateString() : '';
+        return (
+          '<div class="project-card is-trash" data-project-id="' +
+          escapeHtml(projectId) +
+          '">' +
+          '<div class="project-card-header">' +
+          '<h3 class="project-card-title">' +
+          escapeHtml(projectName) +
+          '</h3>' +
+          '<span class="badge draft">Trash</span>' +
+          '</div>' +
+          '<div class="project-card-meta">' +
+          (deletedAt ? '<span class="project-card-date">Deleted: ' + escapeHtml(deletedAt) + '</span>' : '') +
+          '</div>' +
+          '<div class="project-card-actions">' +
+          '<button type="button" class="btn btn-secondary btn-inline project-card-restore" data-project-id="' +
+          escapeHtml(projectId) +
+          '">Restore</button>' +
+          '<button type="button" class="btn btn-danger btn-inline project-card-purge" data-project-id="' +
+          escapeHtml(projectId) +
+          '" data-project-name="' +
+          escapeHtml(projectName) +
+          '">Delete Permanently</button>' +
+          '</div>' +
+          '</div>'
+        );
+      })
+      .join('');
+
+    Array.from(trashGrid.querySelectorAll('.project-card-restore')).forEach(function (button) {
+      button.addEventListener('click', async function () {
+        var pid = button.getAttribute('data-project-id');
+        button.disabled = true;
+        var restored = await restoreProject(pid);
+        button.disabled = false;
+        if (restored) {
+          void loadProjects({ skipLoading: true });
+        }
+      });
+    });
+
+    Array.from(trashGrid.querySelectorAll('.project-card-purge')).forEach(function (button) {
+      button.addEventListener('click', async function () {
+        var pid = button.getAttribute('data-project-id');
+        var pname = button.getAttribute('data-project-name') || 'this project';
+        if (!window.confirm('Delete "' + pname + '" permanently? This cannot be undone.')) {
+          return;
+        }
+        button.disabled = true;
+        var deleted = await deleteProjectPermanently(pid);
+        button.disabled = false;
+        if (deleted) {
+          void loadTrash({ skipLoading: true });
+        }
       });
     });
   };
@@ -3118,6 +3312,12 @@
 
     if (emptyCreateBtn) {
       emptyCreateBtn.addEventListener('click', openNewProject);
+    }
+
+    if (trashRefreshButton) {
+      trashRefreshButton.addEventListener('click', function () {
+        void loadTrash();
+      });
     }
 
     if (exportButton) {
