@@ -1436,13 +1436,17 @@
   var trashEmpty = document.getElementById('trash-empty');
   var trashRefreshButton = document.getElementById('trash-refresh-btn');
   var deleteModal = document.getElementById('delete-modal');
+  var deleteModalTitle = document.getElementById('delete-modal-title');
+  var deleteModalDescription = document.getElementById('delete-modal-description');
   var deleteModalProjectName = document.getElementById('delete-modal-project-name');
+  var deleteModalWarning = document.getElementById('delete-modal-warning');
   var deleteModalConfirm = document.getElementById('delete-modal-confirm');
   var deleteModalCancel = document.getElementById('delete-modal-cancel');
   var deleteModalClose = document.getElementById('delete-modal-close');
   var deleteModalError = document.getElementById('delete-modal-error');
   var currentDeleteProjectId = null;
   var currentDeleteProjectElement = null;
+  var currentDeleteMode = 'soft';
 
   var renderProjectsLoading = function () {
     if (!projectsGrid) {
@@ -1614,7 +1618,7 @@
       button.addEventListener('click', function () {
         var pid = button.getAttribute('data-project-id');
         var pname = button.getAttribute('data-project-name');
-        openDeleteModal(pid, pname, button.closest('.project-card'));
+        openDeleteModal(pid, pname, button.closest('.project-card'), false);
       });
     });
 
@@ -1693,24 +1697,33 @@
       button.addEventListener('click', async function () {
         var pid = button.getAttribute('data-project-id');
         var pname = button.getAttribute('data-project-name') || 'this project';
-        if (!window.confirm('Delete "' + pname + '" permanently? This cannot be undone.')) {
-          return;
-        }
-        button.disabled = true;
-        var deleted = await deleteProjectPermanently(pid);
-        button.disabled = false;
-        if (deleted) {
-          void loadTrash({ skipLoading: true });
-        }
+        openDeleteModal(pid, pname, button.closest('.project-card'), true);
       });
     });
   };
 
-  var openDeleteModal = function (projectId, projectName, projectElement) {
+  var openDeleteModal = function (projectId, projectName, projectElement, isPermanent) {
     currentDeleteProjectId = projectId;
     currentDeleteProjectElement = projectElement;
+    currentDeleteMode = isPermanent ? 'hard' : 'soft';
+    if (deleteModalTitle) {
+      deleteModalTitle.textContent = isPermanent ? 'Delete Permanently' : 'Delete Project';
+    }
+    if (deleteModalDescription) {
+      deleteModalDescription.textContent = isPermanent
+        ? 'This will permanently delete the project now. This cannot be undone.'
+        : 'Are you sure you want to delete this project?';
+    }
     if (deleteModalProjectName) {
       deleteModalProjectName.textContent = projectName || projectId;
+    }
+    if (deleteModalWarning) {
+      deleteModalWarning.textContent = isPermanent
+        ? 'This action cannot be undone.'
+        : 'Deleted projects are permanently removed after 30 days.';
+    }
+    if (deleteModalConfirm) {
+      deleteModalConfirm.textContent = isPermanent ? 'Delete Permanently' : 'Delete Project';
     }
     if (deleteModalError) {
       deleteModalError.textContent = '';
@@ -1723,6 +1736,7 @@
   var closeDeleteModal = function () {
     currentDeleteProjectId = null;
     currentDeleteProjectElement = null;
+    currentDeleteMode = 'soft';
     if (deleteModal) {
       deleteModal.hidden = true;
     }
@@ -1734,37 +1748,49 @@
     }
     if (deleteModalConfirm) {
       deleteModalConfirm.disabled = true;
-      deleteModalConfirm.textContent = 'Deleting...';
+      deleteModalConfirm.textContent = currentDeleteMode === 'hard' ? 'Deleting permanently...' : 'Deleting...';
     }
     if (deleteModalError) {
       deleteModalError.textContent = '';
     }
-    var success = await deleteProject(currentDeleteProjectId);
+    var success =
+      currentDeleteMode === 'hard'
+        ? await deleteProjectPermanently(currentDeleteProjectId)
+        : await deleteProject(currentDeleteProjectId);
     if (success) {
       if (currentDeleteProjectElement) {
         currentDeleteProjectElement.remove();
       }
-      // Check if there are any projects left
-      var remainingProjects = projectsGrid ? projectsGrid.querySelectorAll('.project-card') : [];
-      if (remainingProjects.length === 0) {
-        if (projectsGrid) {
-          projectsGrid.hidden = true;
+      if (currentDeleteMode === 'hard') {
+        if (trashGrid) {
+          void loadTrash({ skipLoading: true });
         }
-        if (projectsEmpty) {
-          projectsEmpty.hidden = false;
+      } else {
+        // Check if there are any projects left
+        var remainingProjects = projectsGrid ? projectsGrid.querySelectorAll('.project-card') : [];
+        if (remainingProjects.length === 0) {
+          if (projectsGrid) {
+            projectsGrid.hidden = true;
+          }
+          if (projectsEmpty) {
+            projectsEmpty.hidden = false;
+          }
         }
+        // Reload to ensure consistency
+        void loadProjects();
       }
       closeDeleteModal();
-      // Reload to ensure consistency
-      loadProjects();
     } else {
       if (deleteModalError) {
-        deleteModalError.textContent = 'Failed to delete project. Please try again.';
+        deleteModalError.textContent =
+          currentDeleteMode === 'hard'
+            ? 'Failed to permanently delete project. Please try again.'
+            : 'Failed to delete project. Please try again.';
       }
     }
     if (deleteModalConfirm) {
       deleteModalConfirm.disabled = false;
-      deleteModalConfirm.textContent = 'Delete Project';
+      deleteModalConfirm.textContent = currentDeleteMode === 'hard' ? 'Delete Permanently' : 'Delete Project';
     }
   };
 
