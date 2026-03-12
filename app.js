@@ -1633,6 +1633,26 @@
       beginProjectNameEdit();
       return false;
     }
+    if (projectFlowState.projectName.length > 256) {
+      setProjectFlowError('Project name must be 256 characters or fewer.');
+      setProjectNameStatus('Project name is too long.', true);
+      beginProjectNameEdit();
+      return false;
+    }
+    if (!isAuthReady) {
+      setProjectFlowError('Finish signing in before saving.');
+      setProjectNameStatus('Waiting for sign-in...', true);
+      return false;
+    }
+    var token = await getSessionToken();
+    if (!token) {
+      setProjectFlowError('Session expired. Redirecting to sign in.');
+      setProjectNameStatus('Session expired. Redirecting to sign in.', true);
+      window.setTimeout(function () {
+        window.location.href = LOGIN_URL;
+      }, 400);
+      return false;
+    }
 
     var isCreate = !projectFlowState.nameSaved || !projectFlowState.projectId;
     setProjectNameStatus('Saving project name...', false);
@@ -1653,9 +1673,26 @@
       }
       return true;
     } catch (error) {
-      var message = error && error.message ? error.message : 'Could not save project name.';
-      setProjectFlowError(message);
-      setProjectNameStatus(message, true);
+      var responseStatus = error && typeof error.status === 'number' ? error.status : 0;
+      var responsePayload = error && error.payload ? error.payload : null;
+      if (responseStatus === 401) {
+        setProjectFlowError('Session expired. Redirecting to sign in.');
+        setProjectNameStatus('Session expired. Redirecting to sign in.', true);
+        window.setTimeout(function () {
+          window.location.href = LOGIN_URL;
+        }, 400);
+      } else if (responseStatus === 400) {
+        var validationMessage = parseValidationMessage(responsePayload, 'Could not save project name.');
+        setProjectFlowError(validationMessage);
+        setProjectNameStatus(validationMessage, true);
+      } else if (responseStatus === 429) {
+        setProjectFlowError('Too many requests. Please retry in a moment.');
+        setProjectNameStatus('Too many requests. Please retry in a moment.', true);
+      } else {
+        var message = error && error.message ? error.message : 'Could not save project name.';
+        setProjectFlowError(message);
+        setProjectNameStatus(message, true);
+      }
       return false;
     } finally {
       if (projectNameSetButton) {
