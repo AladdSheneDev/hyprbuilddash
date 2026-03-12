@@ -472,6 +472,7 @@ body {
 
 .settings-view:not([hidden]) {
   display: grid;
+  gap: 1.6rem;
   animation: fadeIn 0.25s ease;
 }
 
@@ -1637,7 +1638,8 @@ th {
 }
 
 .projects-view:not([hidden]) {
-  display: block;
+  display: grid;
+  gap: 1.6rem;
   animation: fadeIn 0.25s ease;
 }
 
